@@ -1,14 +1,45 @@
 ﻿using Microsoft.Extensions.Logging;
-using System.Diagnostics;
 using YoutubeChannelDownloader.Models;
 using YoutubeExplode;
+using YoutubeExplode.Channels;
+using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 using YoutubeExplode.Videos.Streams;
 
 namespace YoutubeChannelDownloader.Services;
 
-public class YoutubeDownloadService(YoutubeClient youtubeClient, ILogger<YoutubeDownloadService> logger)
+public class YoutubeService(
+    YoutubeClient youtubeClient,
+    ILogger<YoutubeService> logger)
 {
+    private readonly Func<string, Task<Channel?>>[] _parsers =
+    [
+        async url => ChannelId.TryParse(url) is { } id ? await youtubeClient.Channels.GetAsync(id) : null,
+        async url => ChannelSlug.TryParse(url) is { } slug ? await youtubeClient.Channels.GetBySlugAsync(slug) : null,
+        async url => ChannelHandle.TryParse(url) is { } handle ? await youtubeClient.Channels.GetByHandleAsync(handle) : null,
+        async url => UserName.TryParse(url) is { } userName ? await youtubeClient.Channels.GetByUserAsync(userName) : null,
+    ];
+
+    public async Task<Channel?> GetChannel(string channelUrl)
+    {
+        foreach (Func<string, Task<Channel?>> parser in _parsers)
+        {
+            Channel? channel = await parser(channelUrl);
+
+            if (channel != null)
+            {
+                return channel;
+            }
+        }
+
+        return null;
+    }
+
+    public IAsyncEnumerable<PlaylistVideo> GetUploadsAsync(string channelUrl)
+    {
+        return youtubeClient.Channels.GetUploadsAsync(channelUrl);
+    }
+
     public ValueTask DownloadAsync(IStreamInfo stream, string path, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         return youtubeClient.Videos.Streams.DownloadAsync(stream, path, progress, cancellationToken);
@@ -17,8 +48,6 @@ public class YoutubeDownloadService(YoutubeClient youtubeClient, ILogger<Youtube
     public ValueTask DownloadWithProgressAsync(IStreamInfo streamInfo, string path, string streamTitle, string videoTitle, CancellationToken cancellationToken)
     {
         double oldPercent = -1;
-        long totalBytesDownloaded = 0;
-        Stopwatch stopwatch = Stopwatch.StartNew();
 
         string streamType = streamInfo switch
         {
@@ -35,14 +64,7 @@ public class YoutubeDownloadService(YoutubeClient youtubeClient, ILogger<Youtube
                 return;
             }
 
-            long bytesDownloaded = (long)(streamInfo.Size.MegaBytes * percent);
-            long bytesThisUpdate = bytesDownloaded - totalBytesDownloaded;
-            totalBytesDownloaded = bytesDownloaded;
-
-            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-            double speedInBytesPerSecond = elapsedSeconds > 0 ? bytesThisUpdate / elapsedSeconds : 0;
-
-            logger.LogDebug("{StreamType}: {Percent:P2}\t{Speed:F3} MB/s\t{StreamTitle}\t{VideoTitle}", streamType, percent, speedInBytesPerSecond, streamTitle, videoTitle);
+            logger.LogDebug("{StreamType}: {Percent:P2} {VideoTitle} {StreamTitle}", streamType, percent, videoTitle, streamTitle);
             oldPercent = percent;
         });
 

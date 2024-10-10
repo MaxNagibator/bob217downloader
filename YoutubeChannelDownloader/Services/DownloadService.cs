@@ -8,9 +8,9 @@ using YoutubeExplode.Videos.Streams;
 namespace YoutubeChannelDownloader.Services;
 
 public class DownloadService(
-    ILogger<DownloadService> logger,
-    YoutubeDownloadService youtubeDownloadService,
-    FFmpegConverter converter)
+    YoutubeService youtubeService,
+    FFmpegConverter converter,
+    ILogger<DownloadService> logger)
 {
     private readonly List<DownloadItem> _items = [];
 
@@ -42,9 +42,9 @@ public class DownloadService(
             return downloadItem;
         }
 
-        Video video = await youtubeDownloadService.GetVideoAsync(url);
+        Video video = await youtubeService.GetVideoAsync(url);
 
-        StreamManifest streamManifest = await youtubeDownloadService.GetStreamManifestAsync(url);
+        StreamManifest streamManifest = await youtubeService.GetStreamManifestAsync(url);
 
         IAudioStreamInfo highestAudioStream = (IAudioStreamInfo)streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
         IVideoStreamInfo highestVideoStream = (IVideoStreamInfo)streamManifest.GetVideoOnlyStreams().GetWithHighestBitrate();
@@ -117,13 +117,13 @@ public class DownloadService(
             return;
         }
 
-        ValueTask audioTask = youtubeDownloadService.DownloadWithProgressAsync(downloadStream.AudioStreamInfo,
+        ValueTask audioTask = youtubeService.DownloadWithProgressAsync(downloadStream.AudioStreamInfo,
             audioPath,
             downloadStream.Title,
             downloadItem.Video.Title,
             cancellationToken);
 
-        ValueTask videoTask = youtubeDownloadService.DownloadWithProgressAsync(downloadStream.VideoStreamInfo,
+        ValueTask videoTask = youtubeService.DownloadWithProgressAsync(downloadStream.VideoStreamInfo,
             videoPath,
             downloadStream.Title,
             downloadItem.Video.Title,

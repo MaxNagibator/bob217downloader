@@ -1,29 +1,29 @@
 ﻿namespace YoutubeChannelDownloader.Models;
 
-public enum VideoStatus
+public class VideoInfo(string title, string fileName, VideoState state, string url, string? thumbnailUrl)
 {
     /// <summary>
-    ///     Видео еще не загружено
+    ///     Заголовок видео.
     /// </summary>
-    NotDownloaded = 0,
+    public string Title { get; } = title;
 
     /// <summary>
-    ///     Видео успешно загружено
+    ///     Имя файла, под которым будет сохранено видео.
     /// </summary>
-    Downloaded = 1,
+    public string FileName { get; } = fileName;
 
     /// <summary>
-    ///     Ошибка при загрузке
+    ///     Текущее состояние процесса загрузки видео.
     /// </summary>
-    Error = 2,
-}
+    public VideoState State { get; set; } = state;
 
-public class VideoInfo(string title, string fileName, VideoStatus status, string url, string? thumbnailUrl, string playlistId)
-{
-    public string Title { get; init; } = title;
-    public string FileName { get; init; } = fileName;
-    public VideoStatus Status { get; set; } = status;
-    public string Url { get; init; } = url;
-    public string? ThumbnailUrl { get; init; } = thumbnailUrl;
-    public string PlaylistId { get; init; } = playlistId;
+    /// <summary>
+    ///     URL видео на YouTube.
+    /// </summary>
+    public string Url { get; } = url;
+
+    /// <summary>
+    ///     URL миниатюры видео.
+    /// </summary>
+    public string? ThumbnailUrl { get; } = thumbnailUrl;
 }

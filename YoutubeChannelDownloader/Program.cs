@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Serilog;
 using YoutubeChannelDownloader;
 using YoutubeChannelDownloader.Configurations;
@@ -8,35 +9,35 @@ using YoutubeExplode;
 
 IConfigurationRoot configuration = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile($"appsettings.json", false, true)
-    .AddJsonFile($"appsettings.Development.json", false, true)
+    .AddJsonFile("appsettings.json", false, true)
+    .AddJsonFile("appsettings.Development.json", true, true)
     .Build();
 
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
-    .WriteTo.Console()
-    .CreateLogger();
-
 ServiceProvider serviceProvider = new ServiceCollection()
-    .AddLogging(loggingBuilder => loggingBuilder.AddSerilog(dispose: true))
     .Configure<DownloadOptions>(configuration.GetSection(nameof(DownloadOptions)))
     .Configure<FFmpegOptions>(configuration.GetSection(nameof(FFmpegOptions)))
-    .AddSingleton<Helper>()
+    .AddLogging(loggingBuilder =>
+    {
+        loggingBuilder.ClearProviders();
+        loggingBuilder.AddSerilog();
+    })
+    .AddSingleton<ILoggerFactory>(SerilogFactory.Init)
+    .AddSingleton<VideoDownloaderService>()
+    .AddSingleton<DirectoryService>()
     .AddSingleton<YoutubeClient>()
     .AddSingleton<DownloadService>()
-    .AddSingleton<YoutubeDownloadService>()
+    .AddSingleton<YoutubeService>()
     .AddSingleton<FFmpegConverter>()
     .AddSingleton<FFmpeg>()
     .AddSingleton<HttpClient>()
-    .AddSingleton<ChannelDownloaderService>()
+    .AddSingleton<ChannelService>()
     .BuildServiceProvider();
 
-ChannelDownloaderService channelDownloaderService = serviceProvider.GetRequiredService<ChannelDownloaderService>();
+ChannelService service = serviceProvider.GetRequiredService<ChannelService>();
 
 string channelId = "https://www.youtube.com/@bobito217";
 // string channelId = "UCOuW8i824NprPKrM4Pq4R0w";// боксёр
 
-await channelDownloaderService.DownloadVideosAsync(channelId);
-//await channelDownloaderService.DownloadPlaylists(channelId);
+await service.DownloadVideosAsync(channelId);
 
 Log.CloseAndFlush();

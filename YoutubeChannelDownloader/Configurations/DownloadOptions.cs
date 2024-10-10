@@ -13,7 +13,7 @@ public class DownloadOptions
 
     public string TempFolderPath => _tempFolderPath ??= IsRelativePath
         ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, VideoFolderPath, ".temp")
-        : VideoFolderPath;
+        : Path.Combine(VideoFolderPath, ".temp");
 
     public required bool IsRelativePath { get; init; }
 }

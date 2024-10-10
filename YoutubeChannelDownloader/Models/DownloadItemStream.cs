@@ -30,11 +30,6 @@ public class DownloadItemStream
     private DownloadItemStream(int id, string tempName, string tempPath, string fileName, string filePath, IAudioStreamInfo audioStream, IVideoStreamInfo videoStream)
         : this(id, tempName, tempPath, fileName, filePath)
     {
-        Id = id;
-        TempName = tempName;
-        TempPath = tempPath;
-        FileName = fileName;
-        FilePath = filePath;
         AudioStreamInfo = audioStream;
         VideoStreamInfo = videoStream;
     }
@@ -68,14 +63,12 @@ public class DownloadItemStream
     public static DownloadItemStream Create(int id, string tempPath, string filePath, Video video, IStreamInfo stream)
     {
         (string tempName, string fileName) = GetFileNames(id, video, stream);
-
         return new DownloadItemStream(id, tempName, Path.Combine(tempPath, tempName), fileName, Path.Combine(filePath, fileName), stream);
     }
 
     public static DownloadItemStream Create(int id, string tempPath, string filePath, Video video, IAudioStreamInfo audioStream, IVideoStreamInfo videoStream)
     {
         (string tempName, string fileName) = GetFileNames(id, video, videoStream);
-
         return new DownloadItemStream(id, tempName, Path.Combine(tempPath, tempName), fileName, Path.Combine(filePath, fileName), audioStream, videoStream);
     }
 
