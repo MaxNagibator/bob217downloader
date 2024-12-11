@@ -11,10 +11,12 @@ namespace YoutubeDownloader.Controllers
     public class MainController : ControllerBase
     {
         private DownloadManager _downloadManager;
+        private ILogger<MainController> _logger;
 
-        public MainController(DownloadManager downloadManager)
+        public MainController(DownloadManager downloadManager, ILogger<MainController> logger)
         {
             _downloadManager = downloadManager;
+            _logger = logger;
         }
 
         [HttpPost("AddToDownload")]
@@ -28,6 +30,7 @@ namespace YoutubeDownloader.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "AddToDownload error");
                 // todo сделать мидлварку для ошибок
                 return new JsonResult(new { error = true, message = "Всё упало" });
             }
@@ -98,6 +101,7 @@ namespace YoutubeDownloader.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "SetToDownloadState error");
                 // todo сделать мидлварку для ошибок
                 return new JsonResult(new { error = true, message = "Всё упало" });
             }

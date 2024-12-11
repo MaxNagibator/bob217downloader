@@ -25,7 +25,6 @@ namespace YoutubeDownloader.Logic
             var video = await youtube.Videos.GetAsync(url);
 
             var streamManifest = await youtube.Videos.Streams.GetManifestAsync(url);
-            var streamInfo = streamManifest.GetMuxedStreams().GetWithHighestVideoQuality();
 
             var id = Guid.NewGuid();
 
