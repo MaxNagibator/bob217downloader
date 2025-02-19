@@ -1,0 +1,3 @@
+качаем zip https://github.com/Tyrrrz/YoutubeExplode
+удаляем старый, вставляем новый
+удаляем нагет Deorcify с плохими словами
