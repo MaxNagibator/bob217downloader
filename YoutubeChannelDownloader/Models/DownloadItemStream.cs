@@ -62,20 +62,20 @@ public class DownloadItemStream
 
     public static DownloadItemStream Create(int id, string tempPath, string filePath, Video video, IStreamInfo stream)
     {
-        (string tempName, string fileName) = GetFileNames(id, video, stream);
-        return new DownloadItemStream(id, tempName, Path.Combine(tempPath, tempName), fileName, Path.Combine(filePath, fileName), stream);
+        var (tempName, fileName) = GetFileNames(id, video, stream);
+        return new(id, tempName, Path.Combine(tempPath, tempName), fileName, Path.Combine(filePath, fileName), stream);
     }
 
     public static DownloadItemStream Create(int id, string tempPath, string filePath, Video video, IAudioStreamInfo audioStream, IVideoStreamInfo videoStream)
     {
-        (string tempName, string fileName) = GetFileNames(id, video, videoStream);
-        return new DownloadItemStream(id, tempName, Path.Combine(tempPath, tempName), fileName, Path.Combine(filePath, fileName), audioStream, videoStream);
+        var (tempName, fileName) = GetFileNames(id, video, videoStream);
+        return new(id, tempName, Path.Combine(tempPath, tempName), fileName, Path.Combine(filePath, fileName), audioStream, videoStream);
     }
 
     private static (string tempName, string fileName) GetFileNames(int id, Video video, IStreamInfo stream)
     {
-        string tempName = string.Format(FileNameFormat, video.Id, id, stream.Container.Name);
-        string fileName = $"{video.GetFileName()}.{stream.Container.Name}";
+        var tempName = string.Format(FileNameFormat, video.Id, id, stream.Container.Name);
+        var fileName = $"{video.GetFileName()}.{stream.Container.Name}";
         return (tempName, fileName);
     }
 }

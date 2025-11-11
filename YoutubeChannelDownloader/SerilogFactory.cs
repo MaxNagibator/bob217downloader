@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Serilog;
-using Serilog.Core;
 using Serilog.Extensions.Logging;
 using YoutubeChannelDownloader.Configurations;
 
@@ -11,10 +10,10 @@ public static class SerilogFactory
 {
     public static SerilogLoggerFactory Init(IServiceProvider provider)
     {
-        IOptions<DownloadOptions> options = provider.GetRequiredService<IOptions<DownloadOptions>>();
-        string logPath = Path.Combine(options.Value.VideoFolderPath, "logs", "verbose.log");
+        var options = provider.GetRequiredService<IOptions<DownloadOptions>>();
+        var logPath = Path.Combine(options.Value.VideoFolderPath, "logs", "verbose.log");
 
-        Logger logger = new LoggerConfiguration()
+        var logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
             .WriteTo.File(logPath,
@@ -23,6 +22,6 @@ public static class SerilogFactory
             .CreateLogger();
 
         Log.Logger = logger;
-        return new SerilogLoggerFactory(logger);
+        return new(logger);
     }
 }

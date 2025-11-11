@@ -1,7 +1,7 @@
 ﻿namespace YoutubeChannelDownloader.Models;
 
 /// <summary>
-///     Представляет статистику директории.
+/// Представляет статистику директории.
 /// </summary>
 /// <param name="Count">Количество файлов в директории.</param>
 /// <param name="TotalSize">Общий размер файлов в директории в удобочитаемом формате.</param>

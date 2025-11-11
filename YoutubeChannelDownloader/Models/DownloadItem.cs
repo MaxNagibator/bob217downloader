@@ -34,7 +34,7 @@ public class DownloadItem
 
     public Result<DownloadItemStream> GetStream(int id)
     {
-        DownloadItemStream? itemSteam = Streams.FirstOrDefault(downloadItem => downloadItem.Id == id);
+        var itemSteam = Streams.FirstOrDefault(downloadItem => downloadItem.Id == id);
         return Result.FailureIf(itemSteam == null, itemSteam, $"DownloadItemStream c id {id} не найден")!;
     }
 

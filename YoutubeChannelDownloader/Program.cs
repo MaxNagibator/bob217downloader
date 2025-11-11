@@ -7,13 +7,13 @@ using YoutubeChannelDownloader.Configurations;
 using YoutubeChannelDownloader.Services;
 using YoutubeExplode;
 
-IConfigurationRoot configuration = new ConfigurationBuilder()
+var configuration = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", false, true)
     .AddJsonFile("appsettings.Development.json", true, true)
     .Build();
 
-ServiceProvider serviceProvider = new ServiceCollection()
+var serviceProvider = new ServiceCollection()
     .Configure<DownloadOptions>(configuration.GetSection(nameof(DownloadOptions)))
     .Configure<FFmpegOptions>(configuration.GetSection(nameof(FFmpegOptions)))
     .AddLogging(loggingBuilder =>
@@ -33,9 +33,9 @@ ServiceProvider serviceProvider = new ServiceCollection()
     .AddSingleton<ChannelService>()
     .BuildServiceProvider();
 
-ChannelService service = serviceProvider.GetRequiredService<ChannelService>();
+var service = serviceProvider.GetRequiredService<ChannelService>();
 
-string channelId = "https://www.youtube.com/@bobito217";
+var channelId = "https://www.youtube.com/@bobito217";
 // string channelId = "UCOuW8i824NprPKrM4Pq4R0w";// боксёр
 
 await service.DownloadVideosAsync(channelId);

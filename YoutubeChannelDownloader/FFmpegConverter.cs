@@ -13,7 +13,7 @@ public class FFmpegConverter(FFmpeg ffmpeg)
     {
         ArgumentsBuilder arguments = new();
 
-        foreach (string path in streamPaths)
+        foreach (var path in streamPaths)
         {
             arguments.Add("-i").Add(path);
         }

@@ -3,7 +3,6 @@ using System.Globalization;
 using YoutubeChannelDownloader.Extensions;
 using YoutubeChannelDownloader.Models;
 using YoutubeExplode.Common;
-using YoutubeExplode.Playlists;
 
 namespace YoutubeChannelDownloader.Services;
 
@@ -15,7 +14,7 @@ public class VideoDownloaderService(
     ILogger<VideoDownloaderService> logger)
 {
     /// <summary>
-    ///     Асинхронно загружает видео с указанного канала.
+    /// Асинхронно загружает видео с указанного канала.
     /// </summary>
     /// <param name="channelUrl">URL канала YouTube.</param>
     /// <returns>Список информации о загруженных видео.</returns>
@@ -24,9 +23,9 @@ public class VideoDownloaderService(
         logger.LogInformation("Начинаем загрузку видео с канала: {ChannelUrl}", channelUrl);
 
         List<VideoInfo> videoInfoList = [];
-        IAsyncEnumerable<VideoInfo> uploads = FetchUploadVideosAsync(channelUrl);
+        var uploads = FetchUploadVideosAsync(channelUrl);
 
-        await foreach (VideoInfo video in uploads)
+        await foreach (var video in uploads)
         {
             videoInfoList.Add(video);
             logger.LogDebug("Добавлено видео: {Title}", video.Title);
@@ -37,7 +36,7 @@ public class VideoDownloaderService(
     }
 
     /// <summary>
-    ///     Асинхронно получает видео загрузок для указанного канала.
+    /// Асинхронно получает видео загрузок для указанного канала.
     /// </summary>
     /// <param name="channelUrl">URL канала YouTube.</param>
     /// <returns>Асинхронная коллекция информации о видео.</returns>
@@ -45,13 +44,13 @@ public class VideoDownloaderService(
     {
         logger.LogInformation("Получаем видео загрузок для канала: {ChannelUrl}", channelUrl);
 
-        IAsyncEnumerable<PlaylistVideo> playlistVideos = youtubeService.GetUploadsAsync(channelUrl);
+        var playlistVideos = youtubeService.GetUploadsAsync(channelUrl);
 
-        await foreach (PlaylistVideo video in playlistVideos)
+        await foreach (var video in playlistVideos)
         {
-            string fileName = video.GetFileName();
+            var fileName = video.GetFileName();
 
-            yield return new VideoInfo(video.Id.Value,
+            yield return new(video.Id.Value,
                 video.Title,
                 fileName,
                 VideoState.NotDownloaded,
@@ -63,17 +62,17 @@ public class VideoDownloaderService(
     }
 
     /// <summary>
-    ///     Асинхронно загружает отдельное видео.
+    /// Асинхронно загружает отдельное видео.
     /// </summary>
     /// <param name="videoInfo">Информация о видео.</param>
     /// <param name="path">Путь для сохранения видео.</param>
     /// <returns>Состояние загрузки видео.</returns>
     public async Task<VideoState> DownloadVideoAsync(VideoInfo videoInfo, string path)
     {
-        string url = videoInfo.Url;
+        var url = videoInfo.Url;
 
         logger.LogInformation("Начинаем загрузку видео: {VideoTitle} из {Url}", videoInfo.Title, url);
-        (DownloadItem? item, DownloadItemStream? stream) = await downloadService.DownloadVideo(url, path);
+        var (item, stream) = await downloadService.DownloadVideo(url, path);
 
         if (item == null)
         {
@@ -89,7 +88,7 @@ public class VideoDownloaderService(
     }
 
     /// <summary>
-    ///     Асинхронно сохраняет метаданные видео.
+    /// Асинхронно сохраняет метаданные видео.
     /// </summary>
     /// <param name="videoInfo">Информация о видео.</param>
     /// <param name="item">Загруженный элемент видео.</param>
@@ -107,7 +106,7 @@ public class VideoDownloaderService(
     }
 
     /// <summary>
-    ///     Асинхронно загружает миниатюру видео.
+    /// Асинхронно загружает миниатюру видео.
     /// </summary>
     /// <param name="thumbnailUrl">URL миниатюры.</param>
     /// <param name="savePath">Путь для сохранения миниатюры.</param>
@@ -122,7 +121,7 @@ public class VideoDownloaderService(
         try
         {
             logger.LogDebug("Начинаем загрузку миниатюры: {ThumbnailUrl}", thumbnailUrl);
-            HttpResponseMessage response = await httpClient.GetAsync(thumbnailUrl);
+            var response = await httpClient.GetAsync(thumbnailUrl);
             response.EnsureSuccessStatusCode();
 
             await using FileStream fileStream = new(savePath, FileMode.Create, FileAccess.Write, FileShare.None);

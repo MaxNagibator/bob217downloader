@@ -8,20 +8,20 @@ public class DirectoryService(
     ILogger<DirectoryService> logger)
 {
     /// <summary>
-    ///     Очищает временные директории и создает необходимые папки.
+    /// Очищает временные директории и создает необходимые папки.
     /// </summary>
     /// <param name="path">Путь к основной директории.</param>
     public void CleanUpDirectories(string path)
     {
-        string tempFolderPath = Path.Combine(path, ".temp");
+        var tempFolderPath = Path.Combine(path, ".temp");
 
         try
         {
             CreateDirectoryIfNotExists(path, "видео");
             CreateDirectoryIfNotExists(tempFolderPath, "временные");
 
-            DirectoryStats tempFilesStats = CleanUpFiles(tempFolderPath);
-            DirectoryStats mainFilesStats = path.GetDirectoryInfo();
+            var tempFilesStats = CleanUpFiles(tempFolderPath);
+            var mainFilesStats = path.GetDirectoryInfo();
 
             logger.LogInformation("Удалено временных файлов: {Count}, общий объём: {TotalSize}, средний размер: {AverageSize}",
                 tempFilesStats.Count, tempFilesStats.TotalSize, tempFilesStats.AverageSize);
@@ -36,7 +36,7 @@ public class DirectoryService(
     }
 
     /// <summary>
-    ///     Очищает временные файлы, связанные с указанным элементом загрузки.
+    /// Очищает временные файлы, связанные с указанным элементом загрузки.
     /// </summary>
     /// <param name="item">Элемент загрузки, для которого нужно очистить временные файлы.</param>
     /// <param name="stream">Поток загрузки, содержащий путь к временным файлам.</param>
@@ -44,7 +44,7 @@ public class DirectoryService(
     {
         logger.LogInformation("Начало очистки временных файлов для элемента: {VideoTitle}, временный путь: {TempPath}", item.Video.Title, stream.TempPath);
 
-        string? directoryName = Path.GetDirectoryName(stream.TempPath);
+        var directoryName = Path.GetDirectoryName(stream.TempPath);
 
         if (string.IsNullOrWhiteSpace(directoryName))
         {
@@ -53,7 +53,7 @@ public class DirectoryService(
         }
 
         DirectoryInfo directoryInfo = new(directoryName);
-        FileInfo[] filesToDelete = directoryInfo.GetFiles().Where(file => file.Name.StartsWith(item.Id)).ToArray();
+        var filesToDelete = directoryInfo.GetFiles().Where(file => file.Name.StartsWith(item.Id)).ToArray();
 
         if (filesToDelete.Length == 0)
         {
@@ -61,7 +61,7 @@ public class DirectoryService(
             return;
         }
 
-        foreach (FileInfo file in filesToDelete)
+        foreach (var file in filesToDelete)
         {
             File.Delete(file.FullName);
             logger.LogDebug("Удалён временный файл: {File}", file.FullName);
@@ -69,7 +69,7 @@ public class DirectoryService(
     }
 
     /// <summary>
-    ///     Создает директорию, если она не существует.
+    /// Создает директорию, если она не существует.
     /// </summary>
     /// <param name="path">Путь к директории.</param>
     /// <param name="directoryType">Тип директории (например, "видео" или "временные").</param>
@@ -87,15 +87,15 @@ public class DirectoryService(
     }
 
     /// <summary>
-    ///     Очищает файлы в указанной директории.
+    /// Очищает файлы в указанной директории.
     /// </summary>
     /// <param name="folderPath">Путь к директории, которую нужно очистить.</param>
     /// <returns>Статистика директории после очистки.</returns>
     private DirectoryStats CleanUpFiles(string folderPath)
     {
-        FileInfo[] files = new DirectoryInfo(folderPath).GetFiles();
+        var files = new DirectoryInfo(folderPath).GetFiles();
 
-        foreach (FileInfo file in files)
+        foreach (var file in files)
         {
             File.Delete(file.FullName);
             logger.LogDebug("Удалён файл: {File}", file.FullName);

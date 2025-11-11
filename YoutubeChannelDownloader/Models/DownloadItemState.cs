@@ -3,27 +3,27 @@
 public enum DownloadItemState
 {
     /// <summary>
-    ///     Ожидает дальнейших распоряжений.
+    /// Ожидает дальнейших распоряжений.
     /// </summary>
     Added,
 
     /// <summary>
-    ///     Ожидает загрузку.
+    /// Ожидает загрузку.
     /// </summary>
     Wait,
 
     /// <summary>
-    ///     В процессе загрузки.
+    /// В процессе загрузки.
     /// </summary>
     InProcess,
 
     /// <summary>
-    ///     Загружен.
+    /// Загружен.
     /// </summary>
     Ready,
 
     /// <summary>
-    ///     Ошибка.
+    /// Ошибка.
     /// </summary>
     Error,
 }
