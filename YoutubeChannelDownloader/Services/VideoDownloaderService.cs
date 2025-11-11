@@ -51,7 +51,8 @@ public class VideoDownloaderService(
         {
             string fileName = video.GetFileName();
 
-            yield return new VideoInfo(video.Title,
+            yield return new VideoInfo(video.Id.Value,
+                video.Title,
                 fileName,
                 VideoState.NotDownloaded,
                 video.Url,

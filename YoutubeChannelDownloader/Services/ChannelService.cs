@@ -7,6 +7,7 @@ using YoutubeChannelDownloader.Configurations;
 using YoutubeChannelDownloader.Extensions;
 using YoutubeChannelDownloader.Models;
 using YoutubeExplode.Channels;
+using YoutubeExplode.Videos;
 
 namespace YoutubeChannelDownloader.Services;
 
@@ -54,6 +55,7 @@ public class ChannelService(
             return;
         }
 
+        await UpdateVideoTitlesAndRenameFilesAsync(videos, videosPath);
         ValidateVideoState(videos, videosPath);
         await SaveVideoData(videos, dataPath);
 
@@ -112,6 +114,10 @@ public class ChannelService(
 
             if (savedVideos is { Count: > 0 })
             {
+                FillMissingVideoIds(savedVideos);
+
+                savedVideos = RemoveDuplicates(savedVideos);
+
                 await UpdateVideosAsync(savedVideos, channelId);
                 return savedVideos;
             }
@@ -141,12 +147,15 @@ public class ChannelService(
 
         if (lastVideo != null)
         {
-            List<VideoInfo> newVideos = await FetchNewVideoUploadsAsync(channelId, lastVideo.Url);
+            List<VideoInfo> newVideos = await FetchNewVideoUploadsAsync(channelId, lastVideo.Id);
 
             if (newVideos.Count > 0)
             {
-                videos.AddRange(newVideos);
-                logger.LogInformation("Найдено {Count} новых видео", newVideos.Count);
+                HashSet<string> existingIds = videos.Select(x => x.Id).ToHashSet();
+                List<VideoInfo> uniqueNewVideos = newVideos.Where(x => !existingIds.Contains(x.Id)).ToList();
+
+                videos.AddRange(uniqueNewVideos);
+                logger.LogInformation("Найдено {Count} новых видео", uniqueNewVideos.Count);
             }
         }
     }
@@ -166,16 +175,16 @@ public class ChannelService(
     ///     Получает новые загруженные видео с канала, которые не были скачаны.
     /// </summary>
     /// <param name="channelId">ID канала.</param>
-    /// <param name="lastVideoUrl">URL последнего загруженного видео.</param>
+    /// <param name="lastVideoId">ID последнего загруженного видео.</param>
     /// <returns>Список новых видео.</returns>
-    private async Task<List<VideoInfo>> FetchNewVideoUploadsAsync(ChannelId channelId, string lastVideoUrl)
+    private async Task<List<VideoInfo>> FetchNewVideoUploadsAsync(ChannelId channelId, string lastVideoId)
     {
         List<VideoInfo> newVideos = [];
         IAsyncEnumerable<VideoInfo> uploads = helper.FetchUploadVideosAsync(channelId);
 
         await foreach (VideoInfo upload in uploads)
         {
-            if (lastVideoUrl == upload.Url)
+            if (lastVideoId == upload.Id)
             {
                 break;
             }
@@ -186,6 +195,205 @@ public class ChannelService(
 
         newVideos.Reverse();
         return newVideos;
+    }
+
+    /// <summary>
+    ///     Извлекает ID видео из YouTube URL.
+    /// </summary>
+    /// <param name="url">URL видео.</param>
+    /// <returns>ID видео или null, если не удалось извлечь.</returns>
+    private string? ExtractVideoIdFromUrl(string url)
+    {
+        try
+        {
+            if (VideoId.TryParse(url) is { } videoId)
+            {
+                return videoId.Value;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Не удалось извлечь ID из URL: {Url}", url);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Заполняет отсутствующие ID видео, извлекая их из URL.
+    /// </summary>
+    /// <param name="videos">Список видео.</param>
+    private void FillMissingVideoIds(List<VideoInfo> videos)
+    {
+        int filledCount = 0;
+
+        for (int i = 0; i < videos.Count; i++)
+        {
+            VideoInfo video = videos[i];
+
+            if (!string.IsNullOrWhiteSpace(video.Id))
+            {
+                continue;
+            }
+
+            string? extractedId = ExtractVideoIdFromUrl(video.Url);
+
+            if (extractedId != null)
+            {
+                videos[i] = new VideoInfo(extractedId,
+                    video.Title,
+                    video.FileName,
+                    video.State,
+                    video.Url,
+                    video.ThumbnailUrl);
+
+                filledCount++;
+                logger.LogDebug("Заполнен ID для видео: {Title}", video.Title);
+            }
+            else
+            {
+                logger.LogWarning("Не удалось извлечь ID из URL для видео: {Title}", video.Title);
+            }
+        }
+
+        if (filledCount > 0)
+        {
+            logger.LogInformation("Заполнено {Count} ID из URL", filledCount);
+        }
+    }
+
+    /// <summary>
+    ///     Удаляет дубликаты видео по ID, оставляя первое вхождение.
+    /// </summary>
+    /// <param name="videos">Список видео.</param>
+    /// <returns>Список видео без дубликатов.</returns>
+    private List<VideoInfo> RemoveDuplicates(List<VideoInfo> videos)
+    {
+        HashSet<string> seenIds = [];
+        List<VideoInfo> uniqueVideos = [];
+        int duplicateCount = 0;
+
+        foreach (VideoInfo video in videos)
+        {
+            if (string.IsNullOrWhiteSpace(video.Id) || seenIds.Add(video.Id))
+            {
+                uniqueVideos.Add(video);
+            }
+            else
+            {
+                duplicateCount++;
+                logger.LogDebug("Удален дубликат видео: {Title} (ID: {Id})", video.Title, video.Id);
+            }
+        }
+
+        if (duplicateCount > 0)
+        {
+            logger.LogInformation("Удалено {Count} дубликатов", duplicateCount);
+        }
+
+        return uniqueVideos;
+    }
+
+    // TODO: Не работает, если файлы не загружены, а статус в data.json не изменился
+    /// <summary>
+    ///     Обновляет названия видео и переименовывает файлы, если название изменилось.
+    /// </summary>
+    /// <param name="videos">Список видео.</param>
+    /// <param name="videosPath">Путь к директории с видеофайлами.</param>
+    private async Task UpdateVideoTitlesAndRenameFilesAsync(List<VideoInfo> videos, string videosPath)
+    {
+        if (!Directory.Exists(videosPath))
+        {
+            return;
+        }
+
+        int renamedCount = 0;
+
+        for (int i = 0; i < videos.Count; i++)
+        {
+            VideoInfo video = videos[i];
+
+            if (video.State != VideoState.Downloaded)
+            {
+                continue;
+            }
+
+            try
+            {
+                Video actualVideo = await youtubeService.GetVideoAsync(video.Url);
+                string actualTitle = actualVideo.Title.GetFileName();
+
+                if (actualTitle != video.FileName && !string.IsNullOrWhiteSpace(actualTitle))
+                {
+                    logger.LogInformation("Обнаружено изменение названия видео: '{OldTitle}' -> '{NewTitle}'", video.FileName, actualTitle);
+
+                    bool renamed = RenameVideoFiles(videosPath, video.FileName, actualTitle);
+
+                    if (renamed)
+                    {
+                        videos[i] = new VideoInfo(video.Id,
+                            actualVideo.Title,
+                            actualTitle,
+                            video.State,
+                            video.Url,
+                            video.ThumbnailUrl);
+
+                        renamedCount++;
+                        logger.LogInformation("Файлы успешно переименованы для видео: {Title}", actualVideo.Title);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Не удалось обновить информацию о видео: {Title}", video.Title);
+            }
+        }
+
+        if (renamedCount > 0)
+        {
+            logger.LogInformation("Переименовано файлов для {Count} видео", renamedCount);
+        }
+    }
+
+    /// <summary>
+    ///     Переименовывает все файлы, связанные с видео.
+    /// </summary>
+    /// <param name="videosPath">Путь к директории с видеофайлами.</param>
+    /// <param name="oldFileName">Старое имя файла.</param>
+    /// <param name="newFileName">Новое имя файла.</param>
+    /// <returns>true, если переименование прошло успешно.</returns>
+    private bool RenameVideoFiles(string videosPath, string oldFileName, string newFileName)
+    {
+        try
+        {
+            string[] allFiles = Directory.GetFiles(videosPath);
+            List<string> filesToRename = allFiles
+                .Where(f => Path.GetFileName(f).StartsWith(oldFileName, StringComparison.InvariantCultureIgnoreCase))
+                .ToList();
+
+            foreach (string oldFilePath in filesToRename)
+            {
+                string fileName = Path.GetFileName(oldFilePath);
+                string newFileNameFull = fileName.Replace(oldFileName, newFileName);
+                string newFilePath = Path.Combine(videosPath, newFileNameFull);
+
+                if (File.Exists(newFilePath))
+                {
+                    logger.LogWarning("Файл с именем {NewFile} уже существует, пропуск переименования", newFileNameFull);
+                    continue;
+                }
+
+                File.Move(oldFilePath, newFilePath);
+                logger.LogDebug("Переименован файл: {OldFile} -> {NewFile}", fileName, newFileNameFull);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Ошибка при переименовании файлов: {OldFileName} -> {NewFileName}", oldFileName, newFileName);
+            return false;
+        }
     }
 
     /// <summary>

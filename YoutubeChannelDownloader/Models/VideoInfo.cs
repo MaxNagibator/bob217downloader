@@ -1,7 +1,12 @@
 ﻿namespace YoutubeChannelDownloader.Models;
 
-public class VideoInfo(string title, string fileName, VideoState state, string url, string? thumbnailUrl)
+public class VideoInfo(string id, string title, string fileName, VideoState state, string url, string? thumbnailUrl)
 {
+    /// <summary>
+    ///     ID видео на YouTube.
+    /// </summary>
+    public string Id { get; } = id;
+
     /// <summary>
     ///     Заголовок видео.
     /// </summary>
