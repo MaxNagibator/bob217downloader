@@ -1,8 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Globalization;
-using YoutubeChannelDownloader.Extensions;
 using YoutubeChannelDownloader.Models;
-using YoutubeExplode.Common;
 
 namespace YoutubeChannelDownloader.Services;
 
@@ -48,14 +46,12 @@ public class VideoDownloaderService(
 
         await foreach (var video in playlistVideos)
         {
-            var fileName = video.GetFileName();
-
-            yield return new(video.Id.Value,
-                video.Title,
-                fileName,
-                VideoState.NotDownloaded,
-                video.Url,
-                video.Thumbnails.TryGetWithHighestResolution()?.Url);
+            yield return new()
+            {
+                Id = video.Id.Value,
+                Title = video.Title,
+                State = VideoState.NotDownloaded,
+            };
 
             logger.LogTrace("Найдено видео: {Title}", video.Title);
         }

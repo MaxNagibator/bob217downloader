@@ -1,34 +1,40 @@
-﻿namespace YoutubeChannelDownloader.Models;
+﻿using System.Text.Json.Serialization;
+using YoutubeChannelDownloader.Extensions;
 
-public class VideoInfo(string id, string title, string fileName, VideoState state, string url, string? thumbnailUrl)
+namespace YoutubeChannelDownloader.Models;
+
+public class VideoInfo
 {
     /// <summary>
     /// ID видео на YouTube.
     /// </summary>
-    public string Id { get; } = id;
+    public required string Id { get; init; }
 
     /// <summary>
     /// Заголовок видео.
     /// </summary>
-    public string Title { get; } = title;
-
-    /// <summary>
-    /// Имя файла, под которым будет сохранено видео.
-    /// </summary>
-    public string FileName { get; } = fileName;
+    public required string Title { get; init; }
 
     /// <summary>
     /// Текущее состояние процесса загрузки видео.
     /// </summary>
-    public VideoState State { get; set; } = state;
+    public VideoState State { get; set; }
+
+    /// <summary>
+    /// Имя файла, под которым будет сохранено видео.
+    /// </summary>
+    [JsonIgnore]
+    public string FileName => Title.GetFileName();
 
     /// <summary>
     /// URL видео на YouTube.
     /// </summary>
-    public string Url { get; } = url;
+    [JsonIgnore]
+    public string Url => $"https://www.youtube.com/watch?v={Id}";
 
     /// <summary>
     /// URL миниатюры видео.
     /// </summary>
-    public string? ThumbnailUrl { get; } = thumbnailUrl;
+    [JsonIgnore]
+    public string ThumbnailUrl => $"https://img.youtube.com/vi/{Id}/hqdefault.jpg";
 }

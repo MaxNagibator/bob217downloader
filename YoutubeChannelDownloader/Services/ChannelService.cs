@@ -165,10 +165,24 @@ public class ChannelService(
     /// </summary>
     /// <param name="videos">Список видео.</param>
     /// <param name="videosPath">Путь к директории с видеофайлами.</param>
-    private async Task DownloadVideosAsync(List<VideoInfo> videos, string videosPath)
+    private Task DownloadVideosAsync(List<VideoInfo> videos, string videosPath)
     {
-        var videosToDownload = videos.Where(info => info.State is VideoState.NotDownloaded or VideoState.Error).ToList();
-        await DownloadPendingVideosAsync(videosToDownload, videosPath);
+        var videosToDownload = videos.Where(x => x.State is VideoState.NotDownloaded or VideoState.Error).ToList();
+
+        if (_options.MaxDownloadsPerRun > 0 && videosToDownload.Count > _options.MaxDownloadsPerRun)
+        {
+            logger.LogInformation("Применено ограничение на количество загрузок за запуск: {Limit}. Будет загружено {ActualCount} из {RequestedCount} видео.",
+                _options.MaxDownloadsPerRun,
+                _options.MaxDownloadsPerRun,
+                videosToDownload.Count);
+
+            videosToDownload = videosToDownload
+                //.OrderBy(x => x.Id)
+                .Take(_options.MaxDownloadsPerRun)
+                .ToList();
+        }
+
+        return DownloadPendingVideosAsync(videosToDownload, videosPath);
     }
 
     /// <summary>
@@ -240,12 +254,12 @@ public class ChannelService(
 
             if (extractedId != null)
             {
-                videos[i] = new(extractedId,
-                    video.Title,
-                    video.FileName,
-                    video.State,
-                    video.Url,
-                    video.ThumbnailUrl);
+                videos[i] = new()
+                {
+                    Id = extractedId,
+                    Title = video.Title,
+                    State = video.State,
+                };
 
                 filledCount++;
                 logger.LogDebug("Заполнен ID для видео: {Title}", video.Title);
@@ -321,22 +335,22 @@ public class ChannelService(
             try
             {
                 var actualVideo = await youtubeService.GetVideoAsync(video.Url);
-                var actualTitle = actualVideo.Title.GetFileName();
+                var actualTitle = actualVideo.Title;
 
-                if (actualTitle != video.FileName && !string.IsNullOrWhiteSpace(actualTitle))
+                if (!string.IsNullOrWhiteSpace(actualTitle) && !string.Equals(actualTitle, video.Title, StringComparison.Ordinal))
                 {
                     logger.LogInformation("Обнаружено изменение названия видео: '{OldTitle}' -> '{NewTitle}'", video.FileName, actualTitle);
 
-                    var renamed = RenameVideoFiles(videosPath, video.FileName, actualTitle);
+                    var renamed = RenameVideoFiles(videosPath, video.FileName, actualTitle.GetFileName());
 
                     if (renamed)
                     {
-                        videos[i] = new(video.Id,
-                            actualVideo.Title,
-                            actualTitle,
-                            video.State,
-                            video.Url,
-                            video.ThumbnailUrl);
+                        videos[i] = new()
+                        {
+                            Id = video.Id,
+                            Title = actualVideo.Title,
+                            State = video.State,
+                        };
 
                         renamedCount++;
                         logger.LogInformation("Файлы успешно переименованы для видео: {Title}", actualVideo.Title);
