@@ -25,4 +25,12 @@ public class DownloadOptions
     /// 0 или отрицательное значение означает отсутствие ограничения.
     /// </remarks>
     public int MaxDownloadsPerRun { get; init; } = 0;
+
+    /// <summary>
+    /// Добавлять только новые видео, которые опубликованы после последнего из data.json.
+    /// </summary>
+    /// <remarks>
+    /// Если false, то будет выполнена полная перезапись data.json.
+    /// </remarks>
+    public bool AddOnlyNew { get; set; } = true;
 }

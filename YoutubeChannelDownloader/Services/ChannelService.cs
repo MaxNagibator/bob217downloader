@@ -48,14 +48,14 @@ public class ChannelService(
 
         EnsureDirectoriesExists(channelPath, videosPath);
 
-        var videos = await LoadVideosDataAsync(channel.Id, channelTitle, dataPath);
+        // TODO: Подумать над порядком UpdateVideoTitlesAndRenameFilesAsync и передачей videosPath
+        var videos = await LoadVideosDataAsync(channel.Id, channelTitle, dataPath, videosPath);
 
         if (videos == null)
         {
             return;
         }
 
-        await UpdateVideoTitlesAndRenameFilesAsync(videos, videosPath);
         ValidateVideoState(videos, videosPath);
         await SaveVideoData(videos, dataPath);
 
@@ -103,8 +103,9 @@ public class ChannelService(
     /// <param name="channelId">ID канала.</param>
     /// <param name="channelTitle">Название канала.</param>
     /// <param name="dataPath">Путь к файлу data.json.</param>
+    /// <param name="videosPath"></param>
     /// <returns>Список видео или null, если данные не найдены.</returns>
-    private async Task<List<VideoInfo>?> LoadVideosDataAsync(ChannelId channelId, string channelTitle, string dataPath)
+    private async Task<List<VideoInfo>?> LoadVideosDataAsync(ChannelId channelId, string channelTitle, string dataPath, string videosPath)
     {
         if (File.Exists(dataPath))
         {
@@ -118,8 +119,14 @@ public class ChannelService(
 
                 savedVideos = RemoveDuplicates(savedVideos);
 
-                await UpdateVideosAsync(savedVideos, channelId);
-                return savedVideos;
+                await UpdateVideoTitlesAndRenameFilesAsync(savedVideos, videosPath);
+
+                if (!options.Value.AddOnlyNew)
+                {
+                    return await FetchNewVideoUploadsAsync(channelId, null);
+                }
+
+                return await UpdateVideosAsync(savedVideos, channelId);
             }
 
             logger.LogWarning("Файл data.json не содержит информации о видео");
@@ -141,23 +148,30 @@ public class ChannelService(
     /// </summary>
     /// <param name="videos">Список видео для обновления.</param>
     /// <param name="channelId">ID канала.</param>
-    private async Task UpdateVideosAsync(List<VideoInfo> videos, ChannelId channelId)
+    private async Task<List<VideoInfo>> UpdateVideosAsync(List<VideoInfo> videos, ChannelId channelId)
     {
         var lastVideo = videos.LastOrDefault();
 
-        if (lastVideo != null)
+        if (lastVideo == null)
         {
-            var newVideos = await FetchNewVideoUploadsAsync(channelId, lastVideo.Id);
-
-            if (newVideos.Count > 0)
-            {
-                var existingIds = videos.Select(x => x.Id).ToHashSet();
-                var uniqueNewVideos = newVideos.Where(x => !existingIds.Contains(x.Id)).ToList();
-
-                videos.AddRange(uniqueNewVideos);
-                logger.LogInformation("Найдено {Count} новых видео", uniqueNewVideos.Count);
-            }
+            return videos;
         }
+
+        var newVideos = await FetchNewVideoUploadsAsync(channelId, lastVideo.Id);
+
+        if (newVideos.Count <= 0)
+        {
+            return videos;
+        }
+
+        var existingIds = videos.Select(x => x.Id).ToHashSet();
+        var uniqueNewVideos = newVideos.Where(x => !existingIds.Contains(x.Id)).ToList();
+
+        videos.AddRange(uniqueNewVideos);
+
+        logger.LogInformation("Найдено {Count} новых видео", uniqueNewVideos.Count);
+
+        return videos;
     }
 
     /// <summary>
@@ -177,7 +191,6 @@ public class ChannelService(
                 videosToDownload.Count);
 
             videosToDownload = videosToDownload
-                //.OrderBy(x => x.Id)
                 .Take(_options.MaxDownloadsPerRun)
                 .ToList();
         }
@@ -189,9 +202,9 @@ public class ChannelService(
     /// Получает новые загруженные видео с канала, которые не были скачаны.
     /// </summary>
     /// <param name="channelId">ID канала.</param>
-    /// <param name="lastVideoId">ID последнего загруженного видео.</param>
+    /// <param name="lastVideoId">ID последнего загруженного видео. При null будут получены все видео.</param>
     /// <returns>Список новых видео.</returns>
-    private async Task<List<VideoInfo>> FetchNewVideoUploadsAsync(ChannelId channelId, string lastVideoId)
+    private async Task<List<VideoInfo>> FetchNewVideoUploadsAsync(ChannelId channelId, string? lastVideoId)
     {
         List<VideoInfo> newVideos = [];
         var uploads = helper.FetchUploadVideosAsync(channelId);
@@ -308,6 +321,7 @@ public class ChannelService(
         return uniqueVideos;
     }
 
+    // TODO: Файлы переимновываются, а data.json обновится позже
     // TODO: Не работает, если файлы не загружены, а статус в data.json не изменился
     /// <summary>
     /// Обновляет названия видео и переименовывает файлы, если название изменилось.
@@ -320,6 +334,8 @@ public class ChannelService(
         {
             return;
         }
+
+        logger.LogInformation("Обнаружение изменений названий видео");
 
         var renamedCount = 0;
 
@@ -363,10 +379,7 @@ public class ChannelService(
             }
         }
 
-        if (renamedCount > 0)
-        {
-            logger.LogInformation("Переименовано файлов для {Count} видео", renamedCount);
-        }
+        logger.LogInformation("Переименовано файлов для {Count} видео", renamedCount);
     }
 
     /// <summary>

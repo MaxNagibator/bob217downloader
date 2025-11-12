@@ -35,9 +35,13 @@ var serviceProvider = new ServiceCollection()
 
 var service = serviceProvider.GetRequiredService<ChannelService>();
 
-var channelId = "https://www.youtube.com/@bobito217";
-// string channelId = "UCOuW8i824NprPKrM4Pq4R0w";// боксёр
+var channelUrl = configuration["Channel:Url"];
 
-await service.DownloadVideosAsync(channelId);
+if (string.IsNullOrWhiteSpace(channelUrl))
+{
+    throw new InvalidOperationException("URL канала не настроен. Пожалуйста, укажите 'Channel:Url' в appsettings.");
+}
+
+await service.DownloadVideosAsync(channelUrl);
 
 Log.CloseAndFlush();
