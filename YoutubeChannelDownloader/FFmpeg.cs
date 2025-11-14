@@ -15,12 +15,12 @@ public partial class FFmpeg(IOptions<FFmpegOptions> options)
     {
         StringBuilder stdErrBuffer = new();
 
-        PipeTarget stdErrPipe = PipeTarget.Merge(PipeTarget.ToStringBuilder(stdErrBuffer),
+        var stdErrPipe = PipeTarget.Merge(PipeTarget.ToStringBuilder(stdErrBuffer),
             progress?.Pipe(CreateProgressRouter) ?? PipeTarget.Null);
 
         try
         {
-            Command command = Cli.Wrap(options.Value.Path)
+            var command = Cli.Wrap(options.Value.Path)
                 .WithArguments(arguments)
                 .WithStandardErrorPipe(stdErrPipe);
 
@@ -28,12 +28,12 @@ public partial class FFmpeg(IOptions<FFmpegOptions> options)
         }
         catch (CommandExecutionException exception)
         {
-            string message = $"""
-                              FFmpeg command-line tool failed with an error.
+            var message = $"""
+                           FFmpeg command-line tool failed with an error.
 
-                              Standard error:
-                              {stdErrBuffer}
-                              """;
+                           Standard error:
+                           {stdErrBuffer}
+                           """;
 
             throw new InvalidOperationException(message, exception);
         }
@@ -43,14 +43,14 @@ public partial class FFmpeg(IOptions<FFmpegOptions> options)
     {
         return PipeTarget.ToDelegate(line =>
         {
-            TimeSpan? totalDuration = GetTotalDuration(line);
+            var totalDuration = GetTotalDuration(line);
 
             if (totalDuration is null || totalDuration == TimeSpan.Zero)
             {
                 return;
             }
 
-            TimeSpan? processedDuration = GetProcessedDuration(line);
+            var processedDuration = GetProcessedDuration(line);
 
             if (processedDuration is null || totalDuration == TimeSpan.Zero)
             {
@@ -67,20 +67,20 @@ public partial class FFmpeg(IOptions<FFmpegOptions> options)
     {
         TimeSpan? totalDuration = default;
 
-        Match totalDurationMatch = TotalDurationRegex().Match(line);
+        var totalDurationMatch = TotalDurationRegex().Match(line);
 
-        if (totalDurationMatch.Success == false)
+        if (!totalDurationMatch.Success)
         {
             return totalDuration;
         }
 
-        int hours = int.Parse(totalDurationMatch.Groups[1].Value,
+        var hours = int.Parse(totalDurationMatch.Groups[1].Value,
             CultureInfo.InvariantCulture);
 
-        int minutes = int.Parse(totalDurationMatch.Groups[2].Value,
+        var minutes = int.Parse(totalDurationMatch.Groups[2].Value,
             CultureInfo.InvariantCulture);
 
-        double seconds = double.Parse(totalDurationMatch.Groups[3].Value,
+        var seconds = double.Parse(totalDurationMatch.Groups[3].Value,
             CultureInfo.InvariantCulture);
 
         totalDuration = TimeSpan.FromHours(hours)
@@ -94,20 +94,20 @@ public partial class FFmpeg(IOptions<FFmpegOptions> options)
     {
         TimeSpan? processedDuration = default;
 
-        Match processedDurationMatch = ProcessedDurationRegex().Match(line);
+        var processedDurationMatch = ProcessedDurationRegex().Match(line);
 
-        if (processedDurationMatch.Success == false)
+        if (!processedDurationMatch.Success)
         {
             return processedDuration;
         }
 
-        int hours = int.Parse(processedDurationMatch.Groups[1].Value,
+        var hours = int.Parse(processedDurationMatch.Groups[1].Value,
             CultureInfo.InvariantCulture);
 
-        int minutes = int.Parse(processedDurationMatch.Groups[2].Value,
+        var minutes = int.Parse(processedDurationMatch.Groups[2].Value,
             CultureInfo.InvariantCulture);
 
-        double seconds = double.Parse(processedDurationMatch.Groups[3].Value,
+        var seconds = double.Parse(processedDurationMatch.Groups[3].Value,
             CultureInfo.InvariantCulture);
 
         processedDuration = TimeSpan.FromHours(hours)

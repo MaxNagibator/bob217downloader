@@ -9,7 +9,7 @@ public static class DirectoryExtensions
     private const double Gb = Mb * 1024;
 
     /// <summary>
-    ///     Получает статистику директории по указанному пути.
+    /// Получает статистику директории по указанному пути.
     /// </summary>
     /// <param name="path">Путь к директории.</param>
     /// <returns>Статистика директории.</returns>
@@ -19,20 +19,20 @@ public static class DirectoryExtensions
     }
 
     /// <summary>
-    ///     Получает статистику директории на основе массива файлов.
+    /// Получает статистику директории на основе массива файлов.
     /// </summary>
     /// <param name="files">Массив файлов для анализа.</param>
     /// <returns>Статистика директории.</returns>
     public static DirectoryStats GetDirectoryInfo(this FileInfo[] files)
     {
         double totalSize = files.Sum(file => file.Length);
-        double averageSize = files.Length > 0 ? totalSize / files.Count(info => info.Length >= Mb) : 0;
+        var averageSize = files.Length > 0 ? totalSize / files.Count(info => info.Length >= Mb) : 0;
 
-        return new DirectoryStats(files.Length, FormatSize(totalSize), FormatSize(averageSize));
+        return new(files.Length, FormatSize(totalSize), FormatSize(averageSize));
     }
 
     /// <summary>
-    ///     Форматирует размер в байтах в удобочитаемый вид.
+    /// Форматирует размер в байтах в удобочитаемый вид.
     /// </summary>
     /// <param name="bytes">Размер в байтах.</param>
     /// <returns>Строка с отформатированным размером.</returns>
@@ -43,7 +43,7 @@ public static class DirectoryExtensions
             >= Gb => $"{bytes / Gb:F2} ГБ",
             >= Mb => $"{bytes / Mb:F2} МБ",
             >= Kb => $"{bytes / Kb:F2} КБ",
-            var _ => $"{bytes} байт",
+            _ => $"{bytes} байт",
         };
     }
 }

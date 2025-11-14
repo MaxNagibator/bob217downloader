@@ -27,13 +27,13 @@ public class ChannelService(
     };
 
     /// <summary>
-    ///     Основной метод для загрузки видео с канала YouTube по его URL.
+    /// Основной метод для загрузки видео с канала YouTube по его URL.
     /// </summary>
     /// <param name="channelUrl">URL канала YouTube.</param>
     /// <param name="isDownload">Необходимо ли загружать обнаруженные видео.</param>
     public async Task DownloadVideosAsync(string channelUrl, bool isDownload = true)
     {
-        Channel? channel = await youtubeService.GetChannel(channelUrl);
+        var channel = await youtubeService.GetChannel(channelUrl);
 
         if (channel == null)
         {
@@ -41,21 +41,21 @@ public class ChannelService(
             return;
         }
 
-        string channelTitle = channel.Title.GetFileName();
-        string channelPath = Path.Combine(_options.VideoFolderPath, channelTitle);
-        string dataPath = Path.Combine(channelPath, "data.json");
-        string videosPath = Path.Combine(channelPath, "videos");
+        var channelTitle = channel.Title.GetFileName();
+        var channelPath = Path.Combine(_options.VideoFolderPath, channelTitle);
+        var dataPath = Path.Combine(channelPath, "data.json");
+        var videosPath = Path.Combine(channelPath, "videos");
 
         EnsureDirectoriesExists(channelPath, videosPath);
 
-        List<VideoInfo>? videos = await LoadVideosDataAsync(channel.Id, channelTitle, dataPath);
+        // TODO: Подумать над порядком UpdateVideoTitlesAndRenameFilesAsync и передачей videosPath
+        var videos = await LoadVideosDataAsync(channel.Id, channelTitle, dataPath, videosPath);
 
         if (videos == null)
         {
             return;
         }
 
-        await UpdateVideoTitlesAndRenameFilesAsync(videos, videosPath);
         ValidateVideoState(videos, videosPath);
         await SaveVideoData(videos, dataPath);
 
@@ -68,19 +68,19 @@ public class ChannelService(
     }
 
     /// <summary>
-    ///     Сохраняет данные о видео.
+    /// Сохраняет данные о видео.
     /// </summary>
     /// <param name="videos">Список видео.</param>
     /// <param name="dataPath">Путь к файлу data.json.</param>
     private async Task SaveVideoData(List<VideoInfo> videos, string dataPath)
     {
-        string updatedVideoData = JsonSerializer.Serialize(videos, _serializerOptions);
+        var updatedVideoData = JsonSerializer.Serialize(videos, _serializerOptions);
         await File.WriteAllTextAsync(dataPath, updatedVideoData, Encoding.UTF8);
         logger.LogDebug("Данные видео обновлены и сохранены в файл: {DataPath}", dataPath);
     }
 
     /// <summary>
-    ///     Проверяет наличие директории для канала и создает её, если необходимо.
+    /// Проверяет наличие директории для канала и создает её, если необходимо.
     /// </summary>
     /// <param name="channelPath">Путь к директории канала.</param>
     /// <param name="videosPath">Путь к директории для хранения видео.</param>
@@ -88,7 +88,7 @@ public class ChannelService(
     {
         logger.LogDebug("Проверка наличия директории для канала");
 
-        if (Directory.Exists(channelPath) == false)
+        if (!Directory.Exists(channelPath))
         {
             logger.LogDebug("Создание директории: {ChannelPath}", channelPath);
             Directory.CreateDirectory(channelPath);
@@ -98,19 +98,20 @@ public class ChannelService(
     }
 
     /// <summary>
-    ///     Получает существующие видео из файла данных или загружает новые данные о видео с канала.
+    /// Получает существующие видео из файла данных или загружает новые данные о видео с канала.
     /// </summary>
     /// <param name="channelId">ID канала.</param>
     /// <param name="channelTitle">Название канала.</param>
     /// <param name="dataPath">Путь к файлу data.json.</param>
+    /// <param name="videosPath"></param>
     /// <returns>Список видео или null, если данные не найдены.</returns>
-    private async Task<List<VideoInfo>?> LoadVideosDataAsync(ChannelId channelId, string channelTitle, string dataPath)
+    private async Task<List<VideoInfo>?> LoadVideosDataAsync(ChannelId channelId, string channelTitle, string dataPath, string videosPath)
     {
         if (File.Exists(dataPath))
         {
             logger.LogDebug("Чтение данных видео из файла: {DataPath}", dataPath);
-            string videoData = await File.ReadAllTextAsync(dataPath);
-            List<VideoInfo>? savedVideos = JsonSerializer.Deserialize<List<VideoInfo>>(videoData);
+            var videoData = await File.ReadAllTextAsync(dataPath);
+            var savedVideos = JsonSerializer.Deserialize<List<VideoInfo>>(videoData);
 
             if (savedVideos is { Count: > 0 })
             {
@@ -118,8 +119,14 @@ public class ChannelService(
 
                 savedVideos = RemoveDuplicates(savedVideos);
 
-                await UpdateVideosAsync(savedVideos, channelId);
-                return savedVideos;
+                await UpdateVideoTitlesAndRenameFilesAsync(savedVideos, videosPath);
+
+                if (!options.Value.AddOnlyNew)
+                {
+                    return await FetchNewVideoUploadsAsync(channelId, null);
+                }
+
+                return await UpdateVideosAsync(savedVideos, channelId);
             }
 
             logger.LogWarning("Файл data.json не содержит информации о видео");
@@ -130,59 +137,79 @@ public class ChannelService(
         }
 
         logger.LogDebug("Загрузка информации о загрузках на канале: {Channel}", channelTitle);
-        List<VideoInfo> newVideos = await helper.DownloadVideosFromChannelAsync(channelId);
+        var newVideos = await helper.DownloadVideosFromChannelAsync(channelId);
         newVideos.Reverse();
 
         return newVideos;
     }
 
     /// <summary>
-    ///     Обновляет список видео, добавляя новые загрузки, если они есть.
+    /// Обновляет список видео, добавляя новые загрузки, если они есть.
     /// </summary>
     /// <param name="videos">Список видео для обновления.</param>
     /// <param name="channelId">ID канала.</param>
-    private async Task UpdateVideosAsync(List<VideoInfo> videos, ChannelId channelId)
+    private async Task<List<VideoInfo>> UpdateVideosAsync(List<VideoInfo> videos, ChannelId channelId)
     {
-        VideoInfo? lastVideo = videos.LastOrDefault();
+        var lastVideo = videos.LastOrDefault();
 
-        if (lastVideo != null)
+        if (lastVideo == null)
         {
-            List<VideoInfo> newVideos = await FetchNewVideoUploadsAsync(channelId, lastVideo.Id);
-
-            if (newVideos.Count > 0)
-            {
-                HashSet<string> existingIds = videos.Select(x => x.Id).ToHashSet();
-                List<VideoInfo> uniqueNewVideos = newVideos.Where(x => !existingIds.Contains(x.Id)).ToList();
-
-                videos.AddRange(uniqueNewVideos);
-                logger.LogInformation("Найдено {Count} новых видео", uniqueNewVideos.Count);
-            }
+            return videos;
         }
+
+        var newVideos = await FetchNewVideoUploadsAsync(channelId, lastVideo.Id);
+
+        if (newVideos.Count <= 0)
+        {
+            return videos;
+        }
+
+        var existingIds = videos.Select(x => x.Id).ToHashSet();
+        var uniqueNewVideos = newVideos.Where(x => !existingIds.Contains(x.Id)).ToList();
+
+        videos.AddRange(uniqueNewVideos);
+
+        logger.LogInformation("Найдено {Count} новых видео", uniqueNewVideos.Count);
+
+        return videos;
     }
 
     /// <summary>
-    ///     Обрабатывает и загружает новые видео.
+    /// Обрабатывает и загружает новые видео.
     /// </summary>
     /// <param name="videos">Список видео.</param>
     /// <param name="videosPath">Путь к директории с видеофайлами.</param>
-    private async Task DownloadVideosAsync(List<VideoInfo> videos, string videosPath)
+    private Task DownloadVideosAsync(List<VideoInfo> videos, string videosPath)
     {
-        List<VideoInfo> videosToDownload = videos.Where(info => info.State is VideoState.NotDownloaded or VideoState.Error).ToList();
-        await DownloadPendingVideosAsync(videosToDownload, videosPath);
+        var videosToDownload = videos.Where(x => x.State is VideoState.NotDownloaded or VideoState.Error).ToList();
+
+        if (_options.MaxDownloadsPerRun > 0 && videosToDownload.Count > _options.MaxDownloadsPerRun)
+        {
+            logger.LogInformation("Применено ограничение на количество загрузок за запуск: {Limit}. Будет загружено {ActualCount} из {RequestedCount} видео.",
+                _options.MaxDownloadsPerRun,
+                _options.MaxDownloadsPerRun,
+                videosToDownload.Count);
+
+            videosToDownload = videosToDownload
+                .Take(_options.MaxDownloadsPerRun)
+                .ToList();
+        }
+
+        return DownloadPendingVideosAsync(videosToDownload, videosPath);
     }
 
     /// <summary>
-    ///     Получает новые загруженные видео с канала, которые не были скачаны.
+    /// Получает новые загруженные видео с канала, которые не были скачаны.
     /// </summary>
     /// <param name="channelId">ID канала.</param>
-    /// <param name="lastVideoId">ID последнего загруженного видео.</param>
+    /// <param name="lastVideoId">ID последнего загруженного видео. При null будут получены все видео.</param>
     /// <returns>Список новых видео.</returns>
-    private async Task<List<VideoInfo>> FetchNewVideoUploadsAsync(ChannelId channelId, string lastVideoId)
+    private async Task<List<VideoInfo>> FetchNewVideoUploadsAsync(ChannelId channelId, string? lastVideoId)
     {
         List<VideoInfo> newVideos = [];
-        IAsyncEnumerable<VideoInfo> uploads = helper.FetchUploadVideosAsync(channelId);
+        var uploads = helper.FetchUploadVideosAsync(channelId);
 
-        await foreach (VideoInfo upload in uploads)
+        await foreach (var upload in uploads)
         {
             if (lastVideoId == upload.Id)
             {
@@ -198,7 +225,7 @@ public class ChannelService(
     }
 
     /// <summary>
-    ///     Извлекает ID видео из YouTube URL.
+    /// Извлекает ID видео из YouTube URL.
     /// </summary>
     /// <param name="url">URL видео.</param>
     /// <returns>ID видео или null, если не удалось извлечь.</returns>
@@ -220,32 +247,32 @@ public class ChannelService(
     }
 
     /// <summary>
-    ///     Заполняет отсутствующие ID видео, извлекая их из URL.
+    /// Заполняет отсутствующие ID видео, извлекая их из URL.
     /// </summary>
     /// <param name="videos">Список видео.</param>
     private void FillMissingVideoIds(List<VideoInfo> videos)
     {
-        int filledCount = 0;
+        var filledCount = 0;
 
-        for (int i = 0; i < videos.Count; i++)
+        for (var i = 0; i < videos.Count; i++)
         {
-            VideoInfo video = videos[i];
+            var video = videos[i];
 
             if (!string.IsNullOrWhiteSpace(video.Id))
             {
                 continue;
             }
 
-            string? extractedId = ExtractVideoIdFromUrl(video.Url);
+            var extractedId = ExtractVideoIdFromUrl(video.Url);
 
             if (extractedId != null)
             {
-                videos[i] = new VideoInfo(extractedId,
-                    video.Title,
-                    video.FileName,
-                    video.State,
-                    video.Url,
-                    video.ThumbnailUrl);
+                videos[i] = new()
+                {
+                    Id = extractedId,
+                    Title = video.Title,
+                    State = video.State,
+                };
 
                 filledCount++;
                 logger.LogDebug("Заполнен ID для видео: {Title}", video.Title);
@@ -263,7 +290,7 @@ public class ChannelService(
     }
 
     /// <summary>
-    ///     Удаляет дубликаты видео по ID, оставляя первое вхождение.
+    /// Удаляет дубликаты видео по ID, оставляя первое вхождение.
     /// </summary>
     /// <param name="videos">Список видео.</param>
     /// <returns>Список видео без дубликатов.</returns>
@@ -271,9 +298,9 @@ public class ChannelService(
     {
         HashSet<string> seenIds = [];
         List<VideoInfo> uniqueVideos = [];
-        int duplicateCount = 0;
+        var duplicateCount = 0;
 
-        foreach (VideoInfo video in videos)
+        foreach (var video in videos)
         {
             if (string.IsNullOrWhiteSpace(video.Id) || seenIds.Add(video.Id))
             {
@@ -294,9 +321,10 @@ public class ChannelService(
         return uniqueVideos;
     }
 
+    // TODO: Файлы переимновываются, а data.json обновится позже
     // TODO: Не работает, если файлы не загружены, а статус в data.json не изменился
     /// <summary>
-    ///     Обновляет названия видео и переименовывает файлы, если название изменилось.
+    /// Обновляет названия видео и переименовывает файлы, если название изменилось.
     /// </summary>
     /// <param name="videos">Список видео.</param>
     /// <param name="videosPath">Путь к директории с видеофайлами.</param>
@@ -307,11 +335,13 @@ public class ChannelService(
             return;
         }
 
-        int renamedCount = 0;
+        logger.LogInformation("Обнаружение изменений названий видео");
 
-        for (int i = 0; i < videos.Count; i++)
+        var renamedCount = 0;
+
+        for (var i = 0; i < videos.Count; i++)
         {
-            VideoInfo video = videos[i];
+            var video = videos[i];
 
             if (video.State != VideoState.Downloaded)
             {
@@ -320,23 +350,23 @@ public class ChannelService(
 
             try
             {
-                Video actualVideo = await youtubeService.GetVideoAsync(video.Url);
-                string actualTitle = actualVideo.Title.GetFileName();
+                var actualVideo = await youtubeService.GetVideoAsync(video.Url);
+                var actualTitle = actualVideo.Title;
 
-                if (actualTitle != video.FileName && !string.IsNullOrWhiteSpace(actualTitle))
+                if (!string.IsNullOrWhiteSpace(actualTitle) && !string.Equals(actualTitle, video.Title, StringComparison.Ordinal))
                 {
                     logger.LogInformation("Обнаружено изменение названия видео: '{OldTitle}' -> '{NewTitle}'", video.FileName, actualTitle);
 
-                    bool renamed = RenameVideoFiles(videosPath, video.FileName, actualTitle);
+                    var renamed = RenameVideoFiles(videosPath, video.FileName, actualTitle.GetFileName());
 
                     if (renamed)
                     {
-                        videos[i] = new VideoInfo(video.Id,
-                            actualVideo.Title,
-                            actualTitle,
-                            video.State,
-                            video.Url,
-                            video.ThumbnailUrl);
+                        videos[i] = new()
+                        {
+                            Id = video.Id,
+                            Title = actualVideo.Title,
+                            State = video.State,
+                        };
 
                         renamedCount++;
                         logger.LogInformation("Файлы успешно переименованы для видео: {Title}", actualVideo.Title);
@@ -349,14 +379,11 @@ public class ChannelService(
             }
         }
 
-        if (renamedCount > 0)
-        {
-            logger.LogInformation("Переименовано файлов для {Count} видео", renamedCount);
-        }
+        logger.LogInformation("Переименовано файлов для {Count} видео", renamedCount);
     }
 
     /// <summary>
-    ///     Переименовывает все файлы, связанные с видео.
+    /// Переименовывает все файлы, связанные с видео.
     /// </summary>
     /// <param name="videosPath">Путь к директории с видеофайлами.</param>
     /// <param name="oldFileName">Старое имя файла.</param>
@@ -366,16 +393,16 @@ public class ChannelService(
     {
         try
         {
-            string[] allFiles = Directory.GetFiles(videosPath);
-            List<string> filesToRename = allFiles
+            var allFiles = Directory.GetFiles(videosPath);
+            var filesToRename = allFiles
                 .Where(f => Path.GetFileName(f).StartsWith(oldFileName, StringComparison.InvariantCultureIgnoreCase))
                 .ToList();
 
-            foreach (string oldFilePath in filesToRename)
+            foreach (var oldFilePath in filesToRename)
             {
-                string fileName = Path.GetFileName(oldFilePath);
-                string newFileNameFull = fileName.Replace(oldFileName, newFileName);
-                string newFilePath = Path.Combine(videosPath, newFileNameFull);
+                var fileName = Path.GetFileName(oldFilePath);
+                var newFileNameFull = fileName.Replace(oldFileName, newFileName);
+                var newFilePath = Path.Combine(videosPath, newFileNameFull);
 
                 if (File.Exists(newFilePath))
                 {
@@ -397,7 +424,7 @@ public class ChannelService(
     }
 
     /// <summary>
-    ///     Загружает видео, которые ещё не были скачаны.
+    /// Загружает видео, которые ещё не были скачаны.
     /// </summary>
     /// <param name="videos">Список видео для загрузки.</param>
     /// <param name="videosPath">Путь к директории для хранения видео.</param>
@@ -405,9 +432,9 @@ public class ChannelService(
     {
         logger.LogInformation("Найдено {DownloadableVideoCount} видео для загрузки", videos.Count);
 
-        int errorCount = 0;
+        var errorCount = 0;
 
-        foreach (VideoInfo video in videos)
+        foreach (var video in videos)
         {
             logger.LogDebug("Загрузка видео: {VideoTitle}", video.Title);
 
@@ -426,22 +453,22 @@ public class ChannelService(
     }
 
     /// <summary>
-    ///     Проверяет, все ли файлы загруженных видео присутствуют в директории, и обновляет статус видео.
+    /// Проверяет, все ли файлы загруженных видео присутствуют в директории, и обновляет статус видео.
     /// </summary>
     /// <param name="videos">Список видео.</param>
     /// <param name="videosPath">Путь к директории с видео.</param>
     private void ValidateVideoState(List<VideoInfo> videos, string videosPath)
     {
-        foreach (VideoInfo video in videos)
+        foreach (var video in videos)
         {
-            string videoFilePath = Path.Combine(videosPath, video.FileName);
-            string[] allFiles = Directory.GetFiles(videosPath);
+            var videoFilePath = Path.Combine(videosPath, video.FileName);
+            var allFiles = Directory.GetFiles(videosPath);
 
-            int mainFileCount = allFiles.Count(x => x.Contains($"{video.FileName}.", StringComparison.InvariantCultureIgnoreCase));
-            int infoFileCount = allFiles.Count(x => x.Contains($"{video.FileName}_", StringComparison.InvariantCultureIgnoreCase));
+            var mainFileCount = allFiles.Count(x => x.Contains($"{video.FileName}.", StringComparison.InvariantCultureIgnoreCase));
+            var infoFileCount = allFiles.Count(x => x.Contains($"{video.FileName}_", StringComparison.InvariantCultureIgnoreCase));
 
-            int neededMainCount = 1;
-            int neededInfoCount = 4;
+            var neededMainCount = 1;
+            var neededInfoCount = 4;
 
             if (mainFileCount == neededMainCount && infoFileCount == neededInfoCount)
             {

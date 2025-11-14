@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using YoutubeChannelDownloader.Extensions;
 using YoutubeChannelDownloader.Models;
-using YoutubeExplode.Videos;
 using YoutubeExplode.Videos.Streams;
 
 namespace YoutubeChannelDownloader.Services;
@@ -18,14 +17,14 @@ public class DownloadService(
 
     public Result<DownloadItem> FindItem(string id)
     {
-        DownloadItem? item = _items.FirstOrDefault(downloadItem => downloadItem.Id == id);
+        var item = _items.FirstOrDefault(downloadItem => downloadItem.Id == id);
         return item ?? Result.Failure<DownloadItem>($"DownloadItem c id {id} не найден");
     }
 
     public async Task<(DownloadItem item, DownloadItemStream stream)> DownloadVideo(string url, string path)
     {
-        DownloadItem item = await AddToQueueAsync(url, path);
-        DownloadItemStream? stream = SetStreamToDownload(item.Id, item.Streams.First().Id).Value;
+        var item = await AddToQueueAsync(url, path);
+        var stream = SetStreamToDownload(item.Id, item.Streams.First().Id).Value;
         await DownloadFromQueue();
         return (item, stream);
     }
@@ -34,7 +33,7 @@ public class DownloadService(
     {
         logger.LogDebug("Попытка добавить в очередь: {Url}", url);
 
-        DownloadItem? downloadItem = _items.FirstOrDefault(downloadItem => downloadItem.Url == url);
+        var downloadItem = _items.FirstOrDefault(downloadItem => downloadItem.Url == url);
 
         if (downloadItem is not null)
         {
@@ -42,21 +41,21 @@ public class DownloadService(
             return downloadItem;
         }
 
-        Video video = await youtubeService.GetVideoAsync(url);
+        var video = await youtubeService.GetVideoAsync(url);
 
-        StreamManifest streamManifest = await youtubeService.GetStreamManifestAsync(url);
+        var streamManifest = await youtubeService.GetStreamManifestAsync(url);
 
-        IAudioStreamInfo highestAudioStream = (IAudioStreamInfo)streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-        IVideoStreamInfo highestVideoStream = (IVideoStreamInfo)streamManifest.GetVideoOnlyStreams().GetWithHighestBitrate();
+        var highestAudioStream = (IAudioStreamInfo)streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+        var highestVideoStream = (IVideoStreamInfo)streamManifest.GetVideoOnlyStreams().GetWithHighestBitrate();
 
-        DownloadItemStream stream = DownloadItemStream.Create(0,
+        var stream = DownloadItemStream.Create(0,
             Path.Combine(path, ".temp"),
             path,
             video,
             highestAudioStream,
             highestVideoStream);
 
-        DownloadItem item = DownloadItem.Create(url, [stream], video).GetValueOrDefault();
+        var item = DownloadItem.Create(url, [stream], video).GetValueOrDefault();
 
         _items.Add(item);
         logger.LogDebug("Добавлено в очередь {Id}: {Url}", item.Id, url);
@@ -77,8 +76,8 @@ public class DownloadService(
 
     public async Task DownloadFromQueue()
     {
-        DownloadItem? downloadItem = _items.FirstOrDefault(x => x.Streams.Any(itemSteam => itemSteam.State == DownloadItemState.Wait));
-        DownloadItemStream? downloadStream = downloadItem?.GetWaitStreams().FirstOrDefault();
+        var downloadItem = _items.FirstOrDefault(x => x.Streams.Any(itemSteam => itemSteam.State == DownloadItemState.Wait));
+        var downloadStream = downloadItem?.GetWaitStreams().FirstOrDefault();
 
         if (downloadStream == null || downloadItem == null)
         {
@@ -108,8 +107,8 @@ public class DownloadService(
 
     private async Task DownloadCombinedStream(DownloadItemStream downloadStream, DownloadItem downloadItem, CancellationToken cancellationToken = default)
     {
-        string audioPath = downloadStream.TempPath.AddSuffixToFileName("audio");
-        string videoPath = downloadStream.TempPath.AddSuffixToFileName("video");
+        var audioPath = downloadStream.TempPath.AddSuffixToFileName("audio");
+        var videoPath = downloadStream.TempPath.AddSuffixToFileName("video");
 
         if (downloadStream.AudioStreamInfo == null || downloadStream.VideoStreamInfo == null)
         {
@@ -117,13 +116,13 @@ public class DownloadService(
             return;
         }
 
-        ValueTask audioTask = youtubeService.DownloadWithProgressAsync(downloadStream.AudioStreamInfo,
+        var audioTask = youtubeService.DownloadWithProgressAsync(downloadStream.AudioStreamInfo,
             audioPath,
             downloadStream.Title,
             downloadItem.Video.Title,
             cancellationToken);
 
-        ValueTask videoTask = youtubeService.DownloadWithProgressAsync(downloadStream.VideoStreamInfo,
+        var videoTask = youtubeService.DownloadWithProgressAsync(downloadStream.VideoStreamInfo,
             videoPath,
             downloadStream.Title,
             downloadItem.Video.Title,

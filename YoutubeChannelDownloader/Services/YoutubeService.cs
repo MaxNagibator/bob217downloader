@@ -22,9 +22,9 @@ public class YoutubeService(
 
     public async Task<Channel?> GetChannel(string channelUrl)
     {
-        foreach (Func<string, Task<Channel?>> parser in _parsers)
+        foreach (var parser in _parsers)
         {
-            Channel? channel = await parser(channelUrl);
+            var channel = await parser(channelUrl);
 
             if (channel != null)
             {
@@ -49,12 +49,12 @@ public class YoutubeService(
     {
         double oldPercent = -1;
 
-        string streamType = streamInfo switch
+        var streamType = streamInfo switch
         {
             AudioOnlyStreamInfo => "Audio",
             VideoOnlyStreamInfo => "Video",
             MuxedStreamInfo => "Muxed",
-            var _ => "Unknown",
+            _ => "Unknown",
         };
 
         Progress<double> progress = new(percent =>
