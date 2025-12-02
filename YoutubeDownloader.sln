@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.5.33414.496
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11206.111 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YoutubeDownloader", "YoutubeDownloader\YoutubeDownloader.csproj", "{608D9194-0E0C-4E78-83CA-4CF63BD0F978}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YoutubeChannelDownloader", "YoutubeChannelDownloader\YoutubeChannelDownloader.csproj", "{13286DDC-2C57-4EED-9C25-2E6B0B8E8EFF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RandomFromFile", "RandomFromFile\RandomFromFile.csproj", "{5186FE82-DBD8-40D9-A3E5-0FEB2410D9E1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YoutubeChannelDownloader.Tests", "YoutubeChannelDownloader.Tests\YoutubeChannelDownloader.Tests.csproj", "{85F2D998-D710-4CA4-B39A-A7F651EF9D17}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{5186FE82-DBD8-40D9-A3E5-0FEB2410D9E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5186FE82-DBD8-40D9-A3E5-0FEB2410D9E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5186FE82-DBD8-40D9-A3E5-0FEB2410D9E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{85F2D998-D710-4CA4-B39A-A7F651EF9D17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{85F2D998-D710-4CA4-B39A-A7F651EF9D17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{85F2D998-D710-4CA4-B39A-A7F651EF9D17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{85F2D998-D710-4CA4-B39A-A7F651EF9D17}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

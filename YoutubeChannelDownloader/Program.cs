@@ -13,26 +13,8 @@ var configuration = new ConfigurationBuilder()
     .AddJsonFile("appsettings.Development.json", true, true)
     .Build();
 
-var serviceProvider = new ServiceCollection()
-    .Configure<DownloadOptions>(configuration.GetSection(nameof(DownloadOptions)))
-    .Configure<FFmpegOptions>(configuration.GetSection(nameof(FFmpegOptions)))
-    .AddLogging(loggingBuilder =>
-    {
-        loggingBuilder.ClearProviders();
-        loggingBuilder.AddSerilog();
-    })
-    .AddSingleton<ILoggerFactory>(SerilogFactory.Init)
-    .AddSingleton<VideoDownloaderService>()
-    .AddSingleton<DirectoryService>()
-    .AddSingleton<YoutubeClient>()
-    .AddSingleton<DownloadService>()
-    .AddSingleton<YoutubeService>()
-    .AddSingleton<FFmpegConverter>()
-    .AddSingleton<FFmpeg>()
-    .AddSingleton<HttpClient>()
-    .AddSingleton<ChannelService>()
-    .BuildServiceProvider();
-
+var services = ServiceConfigurator.GetServices(configuration);
+var serviceProvider = services.BuildServiceProvider();
 var service = serviceProvider.GetRequiredService<ChannelService>();
 
 var channelUrl = configuration["Channel:Url"];
@@ -45,3 +27,31 @@ if (string.IsNullOrWhiteSpace(channelUrl))
 await service.DownloadVideosAsync(channelUrl);
 
 Log.CloseAndFlush();
+
+public class ServiceConfigurator
+{
+    public static IServiceCollection GetServices(IConfiguration configuration, Action<IServiceCollection>? configureServices = null)
+    {
+        var serviceProvider = new ServiceCollection()
+        .Configure<DownloadOptions>(configuration.GetSection(nameof(DownloadOptions)))
+        .Configure<FFmpegOptions>(configuration.GetSection(nameof(FFmpegOptions)))
+        .AddLogging(loggingBuilder =>
+        {
+            loggingBuilder.ClearProviders();
+            loggingBuilder.AddSerilog();
+        })
+        .AddSingleton<ILoggerFactory>(SerilogFactory.Init)
+        .AddSingleton<VideoDownloaderService>()
+        .AddSingleton<DirectoryService>()
+        .AddSingleton<YoutubeClient>()
+        .AddSingleton<DownloadService>()
+        .AddSingleton<IYoutubeService, YoutubeService>()
+        .AddSingleton<FFmpegConverter>()
+        .AddSingleton<FFmpeg>()
+        .AddSingleton<HttpClient>()
+        .AddSingleton<ChannelService>();
+
+        configureServices?.Invoke(serviceProvider);
+        return serviceProvider;
+    }
+}

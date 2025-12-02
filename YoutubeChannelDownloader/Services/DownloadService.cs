@@ -7,7 +7,7 @@ using YoutubeExplode.Videos.Streams;
 namespace YoutubeChannelDownloader.Services;
 
 public class DownloadService(
-    YoutubeService youtubeService,
+    IYoutubeService youtubeService,
     FFmpegConverter converter,
     ILogger<DownloadService> logger)
 {

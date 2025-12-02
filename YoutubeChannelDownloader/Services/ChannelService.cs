@@ -12,7 +12,7 @@ using YoutubeExplode.Videos;
 namespace YoutubeChannelDownloader.Services;
 
 public class ChannelService(
-    YoutubeService youtubeService,
+    IYoutubeService youtubeService,
     VideoDownloaderService helper,
     DirectoryService directoryService,
     IOptions<DownloadOptions> options,

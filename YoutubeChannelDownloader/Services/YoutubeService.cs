@@ -8,9 +8,20 @@ using YoutubeExplode.Videos.Streams;
 
 namespace YoutubeChannelDownloader.Services;
 
+public interface IYoutubeService
+{
+    ValueTask DownloadAsync(IStreamInfo stream, string path, IProgress<double>? progress, CancellationToken cancellationToken);
+    ValueTask DownloadWithProgressAsync(DownloadItemStream downloadStream, CancellationToken token);
+    ValueTask DownloadWithProgressAsync(IStreamInfo streamInfo, string path, string streamTitle, string videoTitle, CancellationToken cancellationToken);
+    Task<Channel?> GetChannel(string channelUrl);
+    ValueTask<StreamManifest> GetStreamManifestAsync(string url);
+    IAsyncEnumerable<PlaylistVideo> GetUploadsAsync(string channelUrl);
+    ValueTask<Video> GetVideoAsync(string url);
+}
+
 public class YoutubeService(
     YoutubeClient youtubeClient,
-    ILogger<YoutubeService> logger)
+    ILogger<YoutubeService> logger) : IYoutubeService
 {
     private readonly Func<string, Task<Channel?>>[] _parsers =
     [

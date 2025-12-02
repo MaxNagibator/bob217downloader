@@ -6,7 +6,7 @@ namespace YoutubeChannelDownloader.Services;
 
 public class VideoDownloaderService(
     DownloadService downloadService,
-    YoutubeService youtubeService,
+    IYoutubeService youtubeService,
     DirectoryService directoryService,
     HttpClient httpClient,
     ILogger<VideoDownloaderService> logger)
