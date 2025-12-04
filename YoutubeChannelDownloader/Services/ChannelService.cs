@@ -34,7 +34,6 @@ public class ChannelService(
     public async Task DownloadVideosAsync(string channelUrl, bool isDownload = true)
     {
         var channel = await youtubeService.GetChannel(channelUrl);
-
         if (channel == null)
         {
             logger.LogError("Не удалось найти канал по ссылке: {Url}", channelUrl);

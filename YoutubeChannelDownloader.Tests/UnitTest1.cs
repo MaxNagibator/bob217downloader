@@ -1,25 +1,28 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using YoutubeChannelDownloader.Models;
 using YoutubeChannelDownloader.Services;
 using YoutubeExplode.Channels;
+using YoutubeExplode.Common;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 using YoutubeExplode.Videos.Streams;
 
 namespace YoutubeChannelDownloader.Tests;
 
-public class UnitTest1
+public class Tests
 {
-    [Fact]
-    public void Test1()
+    [SetUp]
+    public void Setup()
     {
-        Assert.Equal(10, 10);
+
     }
 
-    [Fact]
-    public async void TestFail2222()
+    [Test]
+    public async Task Test1()
     {
+
         var configuration = new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string>
         {
@@ -31,61 +34,87 @@ public class UnitTest1
         var services = ServiceConfigurator.GetServices(configuration, services =>
         {
             services.AddSingleton<IYoutubeService, TestYoutubeService>();
+            //services.AddLogging(loggingBuilder =>
+            //{
+            //    loggingBuilder.ClearProviders();;
+            //});
         });
 
         var serviceProvider = services.BuildServiceProvider();
         var channelService = serviceProvider.GetRequiredService<ChannelService>();
-        await channelService.DownloadVideosAsync("channelTwoVideos");
-    }
-}
+        await channelService.DownloadVideosAsync("https://www.youtube.com/@bobito217");
 
-public class TestYoutubeService : IYoutubeService
-{
-    public ValueTask DownloadAsync(IStreamInfo stream, string path, IProgress<double>? progress, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
+        Assert.Pass();
     }
 
-    public ValueTask DownloadWithProgressAsync(DownloadItemStream downloadStream, CancellationToken token)
+    public class TestYoutubeService : IYoutubeService
     {
-        throw new NotImplementedException();
-    }
-
-    public ValueTask DownloadWithProgressAsync(
-        IStreamInfo streamInfo,
-        string path,
-        string streamTitle,
-        string videoTitle,
-        CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task<Channel?> GetChannel(string channelUrl)
-    {
-        if(channelUrl == "channelTwoVideos")
+        public ValueTask DownloadAsync(IStreamInfo stream, string path, IProgress<double>? progress, CancellationToken cancellationToken)
         {
-            return new Channel(new ChannelId("channelTwoVideos"), "Канал с двумя видосами", null);
+            throw new NotImplementedException();
         }
-        throw new NotImplementedException();
-    }
 
-    public ValueTask<StreamManifest> GetStreamManifestAsync(string url)
-    {
-        throw new NotImplementedException();
-    }
-
-    public async IAsyncEnumerable<PlaylistVideo> GetUploadsAsync(string channelUrl)
-    {
-        if (channelUrl == "channelTwoVideos")
+        public async ValueTask DownloadWithProgressAsync(DownloadItemStream downloadStream, CancellationToken token)
         {
-            yield return new PlaylistVideo(new VideoId("1"), "варим кашу", null, null, null);
-            yield return new PlaylistVideo(new VideoId("2"), "сидим пердим", null, null, null);
+            await File.WriteAllTextAsync(downloadStream.FilePath, "huy!", token);
         }
-    }
 
-    public ValueTask<Video> GetVideoAsync(string url)
-    {
-        throw new NotImplementedException();
+        public async ValueTask DownloadWithProgressAsync(
+            IStreamInfo streamInfo,
+            string path,
+            string streamTitle,
+            string videoTitle,
+            CancellationToken cancellationToken)
+        {
+            await File.WriteAllTextAsync(path, "huy!", cancellationToken);
+        }
+
+        public async Task<Channel?> GetChannel(string channelUrl)
+        {
+            if (channelUrl == "https://www.youtube.com/@bobito217")
+            {
+                return new Channel(new ChannelId("UCUpfL223LhRJuiVJe-uP6hg"), "Канал с двумя видосами", null);
+            }
+            throw new NotImplementedException();
+        }
+
+        public async ValueTask<StreamManifest> GetStreamManifestAsync(string url)
+        {
+            var streams = new List<IStreamInfo>
+            {
+              new VideoOnlyStreamInfo("x",new Container(), new FileSize(10),new Bitrate(10),".mp4", new VideoQuality(10,10), new Resolution(10,10)),
+              new AudioOnlyStreamInfo("x",new Container(), new FileSize(10),new Bitrate(10),".mp4", null, null),
+            };
+            return new StreamManifest(streams);
+        }
+
+        public async IAsyncEnumerable<PlaylistVideo> GetUploadsAsync(string channelUrl)
+        {
+            if (channelUrl == "UCUpfL223LhRJuiVJe-uP6hg")
+            {
+                yield return new PlaylistVideo(new VideoId("1"), "варим кашу", null, null, null);
+                yield return new PlaylistVideo(new VideoId("2"), "сидим пердим", null, null, null);
+            }
+        }
+
+        public async ValueTask<Video> GetVideoAsync(string url)
+        {
+            return new Video(
+                new VideoId("1"),
+                "zalupa",
+                new Author("UCUpfL223LhRJuiVJe-uP6hg", "channelTwoVideos титле"),
+                new DateTime(2025, 12, 01),
+                "zalupa opisanie",
+               new TimeSpan(0, 1, 0),
+                null,
+               [".net one love"],
+                // Engagement statistics may be hidden
+                new Engagement(
+                    217,
+                    1,
+                    1
+                )
+            );
+        }
     }
 }
