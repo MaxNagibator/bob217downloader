@@ -1,7 +1,7 @@
 ﻿using YoutubeChannelDownloader.Models;
 using YoutubeChannelDownloader.Services;
+using YoutubeChannelDownloader.Tests.Helpers;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Common;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 using YoutubeExplode.Videos.Streams;
@@ -35,27 +35,29 @@ public class TestYoutubeService(TestYoutubeStorage storage) : IYoutubeService
         var channel = storage.Channels.FirstOrDefault(x => x.Url == channelUrl);
         if (channel == null)
         {
-            throw new Exception("not found");
+            throw new("not found");
         }
-        return new Channel(new ChannelId("UCUpfL223LhRJuiVJe-uP6hg"), channel.Name, null);
+
+        return new(new("UCUpfL223LhRJuiVJe-uP6hg"), channel.Name, null);
     }
 
     public async ValueTask<StreamManifest> GetStreamManifestAsync(string url)
     {
         var streams = new List<IStreamInfo>
-            {
-              new VideoOnlyStreamInfo("x",new Container(), new FileSize(10),new Bitrate(10),".mp4", new VideoQuality(10,10), new Resolution(10,10)),
-              new AudioOnlyStreamInfo("x",new Container(), new FileSize(10),new Bitrate(10),".mp4", null, null),
-            };
-        return new StreamManifest(streams);
+        {
+            new VideoOnlyStreamInfo("x", new(), new(10), new(10), ".mp4", new(10, 10), new(10, 10)),
+            new AudioOnlyStreamInfo("x", new(), new(10), new(10), ".mp4", null, null),
+        };
+
+        return new(streams);
     }
 
     public async IAsyncEnumerable<PlaylistVideo> GetUploadsAsync(string channelUrl)
     {
         if (channelUrl == "UCUpfL223LhRJuiVJe-uP6hg")
         {
-            yield return new PlaylistVideo(new VideoId("1"), "варим кашу", null, null, null);
-            yield return new PlaylistVideo(new VideoId("2"), "сидим пердим", null, null, null);
+            yield return new(new("1"), "варим кашу", null, null, null);
+            yield return new(new("2"), "сидим пердим", null, null, null);
         }
     }
 
@@ -64,25 +66,21 @@ public class TestYoutubeService(TestYoutubeStorage storage) : IYoutubeService
         var video = storage.Videos.FirstOrDefault(x => x.Url == url);
         if (video == null)
         {
-            throw new Exception("not found");
+            throw new("not found");
         }
 
-        return new Video(
-            new VideoId("1"),
+        return new(new("1"),
             video.Name,
             //video.Channel.Id, todo create channelId
-            new Author("UCUpfL223LhRJuiVJe-uP6hg", "channelTwoVideos титле"),
+            new("UCUpfL223LhRJuiVJe-uP6hg", "channelTwoVideos титле"),
             new DateTime(2025, 12, 01),
             video.Description,
-           new TimeSpan(0, 1, 0),
+            new TimeSpan(0, 1, 0),
             null,
-           [".net one love"],
+            [".net one love"],
             // Engagement statistics may be hidden
-            new Engagement(
-                217,
+            new(217,
                 1,
-                1
-            )
-        );
+                1));
     }
 }

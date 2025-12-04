@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using YoutubeChannelDownloader.Services;
+using YoutubeChannelDownloader.Tests.Helpers;
 
 namespace YoutubeChannelDownloader.Tests;
 
@@ -9,7 +10,6 @@ public class Tests
     [SetUp]
     public void Setup()
     {
-
     }
 
     [Test]
@@ -19,6 +19,7 @@ public class Tests
         var channel = client.WithChannel()
             .SetName("Канал " + DateTime.Now.ToString("yyyyMMddHHmmss"))
             .SetUrl("https://www.youtube.com/@bobito217");
+
         var video = channel.WithVideo();
         client.Save();
 
@@ -26,17 +27,16 @@ public class Tests
 
         var path = "E:\\bobgroup\\projects\\youtubeDownloader\\tests\\downloads";
         var configuration = new ConfigurationBuilder()
-        .AddInMemoryCollection(new Dictionary<string, string>
-        {
-            ["DownloadOptions:MaxDownloadsPerRun"] = "1",
-            ["DownloadOptions:VideoFolderPath"] = path,
-        })
-        .Build();
+            .AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["DownloadOptions:MaxDownloadsPerRun"] = "1",
+                ["DownloadOptions:VideoFolderPath"] = path,
+            })
+            .Build();
 
-        var services = ServiceConfigurator.GetServices(configuration, services =>
-        {
-            services.AddSingleton<IYoutubeService>(testYoutubeClient);
-        });
+        var services = new ServiceCollection()
+            .AddYoutubeChannelDownloader(configuration)
+            .AddSingleton<IYoutubeService>(testYoutubeClient);
 
         var serviceProvider = services.BuildServiceProvider();
         var channelService = serviceProvider.GetRequiredService<ChannelService>();
