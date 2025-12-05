@@ -34,7 +34,8 @@ public class TestYoutubeDataClient
     public TestYoutubeDataClient Clear()
     {
         _testObjects = [];
-
+        Storage.Channels.Clear();
+        Storage.Videos.Clear();
         return this;
     }
 }
