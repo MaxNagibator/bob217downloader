@@ -1,23 +1,42 @@
 ﻿using YoutubeChannelDownloader.Models;
 using YoutubeChannelDownloader.Services;
+using YoutubeChannelDownloader.Tests.Helpers;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
+using YoutubeExplode.Videos.ClosedCaptions;
 using YoutubeExplode.Videos.Streams;
 
 namespace YoutubeChannelDownloader.Tests;
 
 public class TestYoutubeService(TestYoutubeStorage storage) : IYoutubeService
 {
+    public List<string> DownloadedFiles { get; } = [];
+    public int DownloadCallCount { get; private set; }
+
     public ValueTask DownloadAsync(IStreamInfo stream, string path, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        DownloadCallCount++;
+        DownloadedFiles.Add(path);
+
+        progress?.Report(0.5);
+        progress?.Report(1.0);
+
+        return ValueTask.CompletedTask;
     }
 
     public async ValueTask DownloadWithProgressAsync(DownloadItemStream downloadStream, CancellationToken token)
     {
-        await File.WriteAllTextAsync(downloadStream.FilePath, "huy!", token);
+        DownloadCallCount++;
+        DownloadedFiles.Add(downloadStream.FilePath);
+        var directory = Path.GetDirectoryName(downloadStream.FilePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        await File.WriteAllTextAsync(downloadStream.FilePath, "h*y!", token);
     }
 
     public async ValueTask DownloadWithProgressAsync(
@@ -27,62 +46,89 @@ public class TestYoutubeService(TestYoutubeStorage storage) : IYoutubeService
         string videoTitle,
         CancellationToken cancellationToken)
     {
-        await File.WriteAllTextAsync(path, "huy!", cancellationToken);
+        DownloadCallCount++;
+        DownloadedFiles.Add(path);
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        await File.WriteAllTextAsync(path, "h*y!", cancellationToken);
     }
 
-    public async Task<Channel?> GetChannel(string channelUrl)
+    public Task<Channel?> GetChannel(string channelUrl)
     {
         var channel = storage.Channels.FirstOrDefault(x => x.Url == channelUrl);
-        if (channel == null)
+        Channel? result = null;
+
+        if (channel != null)
         {
-            throw new Exception("not found");
+            result = new(channel.Id, channel.Name, []);
         }
-        return new Channel(new ChannelId("UCUpfL223LhRJuiVJe-uP6hg"), channel.Name, null);
+
+        return Task.FromResult(result);
     }
 
-    public async ValueTask<StreamManifest> GetStreamManifestAsync(string url)
+    // TODO: Подвязать манифесты к тестовым видео
+    public ValueTask<StreamManifest> GetStreamManifestAsync(string url)
     {
         var streams = new List<IStreamInfo>
-            {
-              new VideoOnlyStreamInfo("x",new Container(), new FileSize(10),new Bitrate(10),".mp4", new VideoQuality(10,10), new Resolution(10,10)),
-              new AudioOnlyStreamInfo("x",new Container(), new FileSize(10),new Bitrate(10),".mp4", null, null),
-            };
-        return new StreamManifest(streams);
+        {
+            new VideoOnlyStreamInfo(url, new("mp4"), new(10_000_000), new(1000),
+                "video/mp4", new(1080, 30), new(1920, 1080)),
+            new AudioOnlyStreamInfo(url, new("mp4"), new(1_000_000), new(128),
+                "audio/mp4", new Language("en", "English"), null),
+        };
+
+        return ValueTask.FromResult(new StreamManifest(streams));
     }
 
     public async IAsyncEnumerable<PlaylistVideo> GetUploadsAsync(string channelUrl)
     {
-        if (channelUrl == "UCUpfL223LhRJuiVJe-uP6hg")
+        var channel = storage.Channels.FirstOrDefault(x => x.Url == channelUrl || x.Id == channelUrl);
+        if (channel == null)
         {
-            yield return new PlaylistVideo(new VideoId("1"), "варим кашу", null, null, null);
-            yield return new PlaylistVideo(new VideoId("2"), "сидим пердим", null, null, null);
+            yield break;
+        }
+
+        var videos = storage.Videos.Where(x => x.Channel == channel);
+        foreach (var video in videos)
+        {
+            var author = new Author(channel.Id, channel.Name);
+            var thumbnail = new Thumbnail($"https://img.youtube.com/vi/{video.Id}/hqdefault.jpg", new(480, 360));
+            yield return new(default,
+                video.Id,
+                video.Name,
+                author,
+                video.Duration,
+                [thumbnail]);
         }
     }
 
-    public async ValueTask<Video> GetVideoAsync(string url)
+    public ValueTask<Video> GetVideoAsync(string url)
     {
-        var video = storage.Videos.FirstOrDefault(x => x.Url == url);
+        var video = storage.Videos.FirstOrDefault(x => x.Url == url || x.Id == url);
         if (video == null)
         {
-            throw new Exception("not found");
+            throw new TestsException($"Video not found: {url}");
         }
 
-        return new Video(
-            new VideoId("1"),
+        var channel = video.Channel;
+
+        return ValueTask.FromResult(new Video(new(video.Id),
             video.Name,
-            //video.Channel.Id, todo create channelId
-            new Author("UCUpfL223LhRJuiVJe-uP6hg", "channelTwoVideos титле"),
-            new DateTime(2025, 12, 01),
+            new(new(channel.Id), channel.Name),
+            video.UploadDate,
             video.Description,
-           new TimeSpan(0, 1, 0),
-            null,
-           [".net one love"],
-            // Engagement statistics may be hidden
-            new Engagement(
-                217,
-                1,
-                1
-            )
-        );
+            video.Duration,
+            [new($"https://img.youtube.com/vi/{video.Id}/hqdefault.jpg", new(480, 360))],
+            video.Keywords,
+            new(video.ViewCount, video.LikeCount, video.DislikeCount)));
+    }
+
+    public bool WasFileDownloaded(string path)
+    {
+        return DownloadedFiles.Contains(path);
     }
 }
