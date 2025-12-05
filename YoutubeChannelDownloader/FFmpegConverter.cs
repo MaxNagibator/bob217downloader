@@ -2,9 +2,18 @@
 
 namespace YoutubeChannelDownloader;
 
-public class FFmpegConverter(FFmpeg ffmpeg)
+public interface IVideoConverter
 {
-    public ValueTask ProcessAsync(
+    ValueTask MergeMediaAsync(
+        string filePath,
+        IEnumerable<string> streamPaths,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default);
+}
+
+public class FFmpegConverter(FFmpeg ffmpeg) : IVideoConverter
+{
+    public ValueTask MergeMediaAsync(
         string filePath,
         IEnumerable<string> streamPaths,
         IProgress<double>? progress = null,

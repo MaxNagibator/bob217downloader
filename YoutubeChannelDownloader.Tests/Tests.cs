@@ -5,17 +5,33 @@ using YoutubeChannelDownloader.Tests.Helpers;
 
 namespace YoutubeChannelDownloader.Tests;
 
-public class Tests
+public class TestYoutubeServiceTests
 {
     private TestYoutubeDataClient _client = null!;
+    private string _baseTempPath = Path.Combine(Path.GetTempPath(), "YoutubeChannelDownloader");
     private string _tempPath = null!;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        try
+        {
+            if (Directory.Exists(_baseTempPath))
+            {
+                Directory.Delete(_baseTempPath, true);
+            }
+        }
+        catch (IOException)
+        {
+        }
+    }
 
     [SetUp]
     public void Setup()
     {
         _client = new();
         //TODO: Шанс коллизии
-        _tempPath = Path.Combine(Path.GetTempPath(), "YoutubeChannelDownloader", "YoutubeTests_" + Guid.NewGuid().ToString("N")[..8]);
+        _tempPath = Path.Combine(_baseTempPath, "YoutubeTests_" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempPath);
     }
 
@@ -29,7 +45,7 @@ public class Tests
         {
             if (Directory.Exists(_tempPath))
             {
-                Directory.Delete(_tempPath, true);
+                // Directory.Delete(_tempPath, true);
             }
         }
         catch (IOException)
@@ -38,7 +54,7 @@ public class Tests
     }
 
     [Test]
-    public async Task СервисВозвращаетКаналИзХранилищаПоUrl()
+    public async Task ВозвращаетКаналИзХранилищаПоUrl()
     {
         const string ValidChannelId = "UC1234567890123456789012";
 
@@ -63,7 +79,7 @@ public class Tests
     }
 
     [Test]
-    public async Task СервисВозвращаетВидеоКаналаИзХранилища()
+    public async Task ВозвращаетВидеоКаналаИзХранилища()
     {
         var channel = _client.WithChannel()
             .SetName("МаксимДваЯйца")
@@ -90,7 +106,7 @@ public class Tests
     }
 
     [Test]
-    public async Task СервисВозвращаетМетаданныеВидеоИзХранилища()
+    public async Task ВозвращаетМетаданныеВидеоИзХранилища()
     {
         // TODO: Подумать над генератором валидных id
         const string ValidVideoId = "CustomVid01";
@@ -125,7 +141,7 @@ public class Tests
     }
 
     [Test]
-    public async Task СервисОтслеживаетСкачивания()
+    public async Task ОтслеживаетСкачивания()
     {
         var service = new TestYoutubeService(_client.Storage);
         var filePath = Path.Combine(_tempPath, "test.mp4");
@@ -147,7 +163,7 @@ public class Tests
     /// isDownload: false - только сканируем канал без скачивания (без FFmpeg)
     /// </summary>
     [Test]
-    public async Task СервисКаналаИспользуетТестовыеДанныеДляСканирования()
+    public async Task КаналаИспользуетТестовыеДанныеДляСканирования()
     {
         const string Video1Id = "TestVideo01";
         const string Video2Id = "TestVideo02";
@@ -156,13 +172,13 @@ public class Tests
             .SetName("TestChannel")
             .SetUrl("https://www.youtube.com/@test_channel");
 
-      var video1=  channel.WithVideo()
-            .SetId(Video1Id)
-            .SetName("Первое видео");
+        var video1 = channel.WithVideo()
+              .SetId(Video1Id)
+              .SetName("Первое видео");
 
-       var video2= channel.WithVideo()
-            .SetId(Video2Id)
-            .SetName("Второе видео");
+        var video2 = channel.WithVideo()
+             .SetId(Video2Id)
+             .SetName("Второе видео");
 
         _client.Save();
 
@@ -204,39 +220,46 @@ public class Tests
     }
 
     [Test]
-    [Ignore("Бобовый тест")]
-    public async Task Test1()
+    public async Task СкачатьВидео()
     {
-        var client = new TestYoutubeDataClient();
-        var channel = client.WithChannel()
-            .SetName("Канал " + DateTime.Now.ToString("yyyyMMddHHmmss"))
-            .SetUrl("https://www.youtube.com/@bobito217");
+        var channel = _client.WithChannel()
+            .SetName("TestChannel")
+            .SetUrl("https://www.youtube.com/@test_channel")
+            .WithVideo()
+            .SetName("Единственное видео")
+            .Channel;
+        _client.Save();
 
-        var video = channel.WithVideo();
-        client.Save();
+        var testYoutubeService = new TestYoutubeService(_client.Storage);
 
-        var testYoutubeClient = new TestYoutubeService(client.Storage);
-
-        var path = "E:\\bobgroup\\projects\\youtubeDownloader\\tests\\downloads";
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["DownloadOptions:MaxDownloadsPerRun"] = "1",
-                ["DownloadOptions:VideoFolderPath"] = path,
+                ["DownloadOptions:MaxDownloadsPerRun"] = "10",
+                ["DownloadOptions:VideoFolderPath"] = _tempPath,
             })
             .Build();
 
         var services = new ServiceCollection()
             .AddYoutubeChannelDownloader(configuration)
-            .AddSingleton<IYoutubeService>(testYoutubeClient);
+            .AddSingleton<IYoutubeService>(testYoutubeService)
+            .AddSingleton<IVideoConverter, TestVideoConverter>();
 
-        var serviceProvider = services.BuildServiceProvider();
-        var channelService = serviceProvider.GetRequiredService<ChannelService>();
-        await channelService.DownloadVideosAsync(channel.Url);
+        var provider = services.BuildServiceProvider();
+        var channelService = provider.GetRequiredService<ChannelService>();
 
-        var expectedDataPath = Path.Combine(path, channel.Name, "data.json");
-        var expectedVideoPath = Path.Combine(path, channel.Name, "videos", video.Name + "_title.txt.");
-        var dataContent = File.ReadAllText(expectedDataPath);
-        var videoTitleContent = File.ReadAllText(expectedVideoPath);
+        await channelService.DownloadVideosAsync(channel.Url, true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            var channelDir = Path.Combine(_tempPath, channel.Name);
+            Assert.That(Directory.Exists(channelDir), Is.True);
+
+            var dataFile = Path.Combine(channelDir, "data.json");
+            Assert.That(File.Exists(dataFile), Is.True);
+
+            var videoFile = Path.Combine(channelDir, "videos", $"{channel.Videos[0].Name}.mp4");
+            Assert.That(File.Exists(videoFile), Is.True);
+        }
     }
 }

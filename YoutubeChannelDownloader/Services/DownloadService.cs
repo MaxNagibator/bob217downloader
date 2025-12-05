@@ -8,7 +8,7 @@ namespace YoutubeChannelDownloader.Services;
 
 public class DownloadService(
     IYoutubeService youtubeService,
-    FFmpegConverter converter,
+    IVideoConverter converter,
     ILogger<DownloadService> logger)
 {
     private readonly List<DownloadItem> _items = [];
@@ -25,7 +25,7 @@ public class DownloadService(
     {
         var item = await AddToQueueAsync(url, path);
         var stream = SetStreamToDownload(item.Id, item.Streams.First().Id).Value;
-        await DownloadFromQueue();
+        await DownloadFromQueueAsync();
         return (item, stream);
     }
 
@@ -74,7 +74,7 @@ public class DownloadService(
             .Tap(() => logger.LogDebug("Успешно установлен поток для скачивания: {Id} {StreamId}", downloadId, streamId));
     }
 
-    public async Task DownloadFromQueue()
+    public async Task DownloadFromQueueAsync()
     {
         var downloadItem = _items.FirstOrDefault(x => x.Streams.Any(itemSteam => itemSteam.State == DownloadItemState.Wait));
         var downloadStream = downloadItem?.GetWaitStreams().FirstOrDefault();
@@ -145,7 +145,7 @@ public class DownloadService(
             oldPercent = percent;
         });
 
-        await converter.ProcessAsync(downloadStream.FilePath, [audioPath, videoPath], progress, cancellationToken);
+        await converter.MergeMediaAsync(downloadStream.FilePath, [audioPath, videoPath], progress, cancellationToken);
 
         logger.LogDebug("Успешно объединено видео и аудио: {Id} {StreamId}", downloadItem.Id, downloadStream.Id);
     }
