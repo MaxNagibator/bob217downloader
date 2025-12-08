@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Globalization;
+using System.Text.Json;
 using YoutubeChannelDownloader.Models;
 
 namespace YoutubeChannelDownloader.Services;
@@ -8,7 +9,7 @@ public class VideoDownloaderService(
     DownloadService downloadService,
     IYoutubeService youtubeService,
     DirectoryService directoryService,
-    HttpClient httpClient,
+    IPictureDownloader pictureDownloader,
     ILogger<VideoDownloaderService> logger)
 {
     /// <summary>
@@ -93,12 +94,17 @@ public class VideoDownloaderService(
     {
         logger.LogInformation("Сохраняем метаданные видео: {VideoTitle}", videoInfo.Title);
 
-        await File.WriteAllTextAsync(Path.Combine(path, $"{videoInfo.FileName}_title.txt"), videoInfo.Title);
-        await File.WriteAllTextAsync(Path.Combine(path, $"{videoInfo.FileName}_description.txt"), item.Video.Description);
-        await File.WriteAllTextAsync(Path.Combine(path, $"{videoInfo.FileName}_upload-date.txt"), item.Video.UploadDate.ToString(CultureInfo.InvariantCulture));
-        await DownloadThumbnailAsync(videoInfo.ThumbnailUrl, Path.Combine(path, $"{videoInfo.FileName}_thumbnail.jpg"));
+        var data = new VideoData();
+        data.Title = videoInfo.Title;
+        data.Description = item.Video.Description;
+        data.UploadDate = item.Video.UploadDate;
 
-        logger.LogDebug("Метаданные для {VideoTitle} успешно сохранены", videoInfo.Title);
+        var dataJson = JsonSerializer.Serialize(data);
+        File.WriteAllText(Path.Combine(path, $"{videoInfo.Id}.json"), dataJson);
+        logger.LogDebug($"Метаданные для {videoInfo.Title} успешно сохранены {videoInfo.Id}.json");
+
+        await DownloadThumbnailAsync(videoInfo.ThumbnailUrl, Path.Combine(path, $"{videoInfo.Id}_thumbnail.jpg"));
+
     }
 
     /// <summary>
@@ -117,11 +123,7 @@ public class VideoDownloaderService(
         try
         {
             logger.LogDebug("Начинаем загрузку миниатюры: {ThumbnailUrl}", thumbnailUrl);
-            var response = await httpClient.GetAsync(thumbnailUrl);
-            response.EnsureSuccessStatusCode();
-
-            await using FileStream fileStream = new(savePath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await response.Content.CopyToAsync(fileStream);
+            await pictureDownloader.Download(thumbnailUrl, savePath);
 
             logger.LogInformation("Миниатюра успешно сохранена в: {Path}", savePath);
         }

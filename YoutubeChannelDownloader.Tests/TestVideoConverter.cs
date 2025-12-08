@@ -1,7 +1,9 @@
 ﻿
+using YoutubeChannelDownloader.Services;
+
 namespace YoutubeChannelDownloader.Tests;
 
-internal class TestVideoConverter : IVideoConverter
+public class TestVideoConverter : IVideoConverter
 {
     public ValueTask MergeMediaAsync(
         string filePath,
@@ -11,5 +13,13 @@ internal class TestVideoConverter : IVideoConverter
     {
         File.WriteAllText(filePath, "я склеился");
         return ValueTask.CompletedTask;
+    }
+}
+
+public class TestPictureDownloader : IPictureDownloader
+{
+    public async Task Download(string url, string path)
+    {
+        await File.WriteAllTextAsync(path, url);
     }
 }

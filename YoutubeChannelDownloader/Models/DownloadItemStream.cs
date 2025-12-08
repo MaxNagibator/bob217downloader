@@ -75,7 +75,7 @@ public class DownloadItemStream
     private static (string tempName, string fileName) GetFileNames(int id, Video video, IStreamInfo stream)
     {
         var tempName = string.Format(FileNameFormat, video.Id, id, stream.Container.Name);
-        var fileName = $"{video.GetFileName()}.{stream.Container.Name}";
+        var fileName = $"{video.Id}.{stream.Container.Name}";
         return (tempName, fileName);
     }
 }

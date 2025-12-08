@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<DownloadService>()
             .AddSingleton<IYoutubeService, YoutubeService>()
             .AddSingleton<IVideoConverter, FFmpegConverter>()
+            .AddSingleton<IPictureDownloader, PictureDownloader>()
             .AddSingleton<FFmpeg>()
             .AddSingleton<HttpClient>()
             .AddSingleton<ChannelService>();
